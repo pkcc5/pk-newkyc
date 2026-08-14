@@ -1,0 +1,2130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>PokePay 客服中心</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/favicon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="客服台">
+    <style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        background: #f5f5f5;
+        height: 100vh;
+        overflow: hidden;
+        font-size: 14px;
+        -webkit-font-smoothing: antialiased;
+    }
+    
+    .header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 14px 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+        padding-top: max(14px, env(safe-area-inset-top));
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .header h1 {
+        font-size: 18px;
+        font-weight: 600;
+    }
+    
+    .header-center {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .tab-btn {
+        background: rgba(255,255,255,0.2);
+        color: rgba(255,255,255,0.7);
+        border: none;
+        padding: 4px 14px;
+        border-radius: 16px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .tab-btn.active {
+        background: rgba(255,255,255,0.3);
+        color: white;
+    }
+    
+    .tab-btn:active {
+        transform: scale(0.95);
+    }
+    
+    #withdrawBadge {
+        display: none;
+        background: #e53e3e;
+        color: white;
+        border-radius: 20px;
+        padding: 2px 8px;
+        font-size: 11px;
+        font-weight: 600;
+        margin-left: -4px;
+    }
+    
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .logout-btn, .notification-btn {
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.3s;
+    }
+    
+    .logout-btn:active, .notification-btn:active {
+        background: rgba(255,255,255,0.3);
+        transform: scale(0.96);
+    }
+    
+    .notification-btn.disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    .container {
+        padding: 12px;
+        height: calc(100vh - 60px);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    
+    .card {
+        background: white;
+        border-radius: 20px;
+        padding: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+    
+    .card h3 {
+        font-size: 16px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+    }
+    
+    /* ========== Tab 内容容器 ========== */
+    #chatTab {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+    }
+    
+    #withdrawTab {
+        display: none;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        padding-top: 4px;
+    }
+
+    #quickRepliesTab {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+    
+    .two-columns {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+        gap: 16px;
+    }
+    
+    .col-left, .col-right {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
+    }
+    
+    .col-left {
+        flex: 1;
+    }
+    
+    .col-right {
+        flex: 1.5;
+    }
+    
+    .conversations-list {
+        overflow-y: auto;
+        flex: 1;
+    }
+    
+    .conv-item {
+        padding: 14px;
+        border-bottom: 1px solid #eee;
+        cursor: pointer;
+        transition: background 0.2s;
+        border-radius: 12px;
+        margin: 4px 0;
+    }
+    
+    .conv-item:active {
+        background: #f0f0f0;
+    }
+    
+    .conv-item.unread {
+        background: #f0f4ff;
+    }
+    
+    .conv-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+    }
+    
+    .conv-email {
+        font-weight: 600;
+        font-size: 14px;
+        word-break: break-all;
+    }
+    
+    .unread-badge {
+        background: #e53e3e;
+        color: white;
+        border-radius: 20px;
+        padding: 2px 10px;
+        font-size: 11px;
+        font-weight: 600;
+    }
+    
+    .conv-last-message {
+        font-size: 12px;
+        color: #666;
+        margin-bottom: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .conv-time {
+        font-size: 10px;
+        color: #999;
+    }
+    
+    .chat-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+    }
+    
+    .chat-header {
+        display: flex;
+        flex-direction: column;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #eee;
+        margin-bottom: 12px;
+        flex-shrink: 0;
+        gap: 4px;
+    }
+
+    .chat-header-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+    }
+
+    .chat-header-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .chat-header-title strong {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* ========== 新增：用户状态徽章（紧靠邮箱右边） ========== */
+    .chat-status-badge {
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 10px;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+    .chat-status-bound {
+        background: #dcfce7;
+        color: #16a34a;
+    }
+    .chat-status-pending {
+        background: #fef3c7;
+        color: #b45309;
+    }
+    .chat-status-unverified {
+        background: #fee2e2;
+        color: #dc2626;
+    }
+    .chat-status-guest {
+        background: #e0e7ff;
+        color: #4338ca;
+    }
+    
+    .close-chat {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #999;
+        padding: 0 8px;
+    }
+    
+    .chat-header-ip {
+        font-size: 12px;
+        color: #888;
+        background: #f3f4f6;
+        border-radius: 12px;
+        padding: 3px 10px;
+        white-space: nowrap;
+        width: fit-content;
+    }
+
+    /* ========== 新增：聊天头部内的手动绑卡区（邮箱取当前会话，客服只需输入后四位） ========== */
+    .chat-bind-card-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        margin-top: 6px;
+    }
+
+    .chat-bind-card-last4 {
+        width: 90px;
+        flex: none;
+        padding: 5px 8px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 13px;
+        box-sizing: border-box;
+    }
+
+    .chat-bind-card-btn {
+        background: #059669;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 5px 12px;
+        font-size: 13px;
+        cursor: pointer;
+        white-space: nowrap;
+        flex: none;
+    }
+
+    .chat-bind-card-btn:disabled {
+        opacity: 0.6;
+        cursor: default;
+    }
+
+    /* ========== 新增：改名按钮 ========== */
+    .chat-rename-card-btn {
+        background: #f59e0b;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 5px 12px;
+        font-size: 13px;
+        cursor: pointer;
+        white-space: nowrap;
+        flex: none;
+    }
+
+    /* ========== 新增：快捷回复按钮行 ========== */
+    .quick-reply-buttons-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+        flex: 1 1 100%;
+        width: 100%;
+        order: 3;
+    }
+
+    .quick-reply-btn {
+        background: #eef2ff;
+        color: #4f46e5;
+        border: 1px solid #c7d2fe;
+        border-radius: 14px;
+        padding: 4px 12px;
+        font-size: 12px;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    .quick-reply-btn:active {
+        background: #e0e7ff;
+    }
+
+    @media (max-width: 767px) {
+        .chat-bind-card-last4 {
+            width: 84px;
+        }
+        .chat-bind-card-btn,
+        .chat-rename-card-btn {
+            flex: 1;
+        }
+    }
+    
+    .close-chat:active {
+        opacity: 0.6;
+    }
+    
+    .messages-area {
+        flex: 1;
+        overflow-y: auto;
+        padding: 8px 0;
+        margin-bottom: 12px;
+        min-height: 0;
+    }
+    
+    .message {
+        margin-bottom: 16px;
+        display: flex;
+    }
+    
+    .message.user {
+        justify-content: flex-end;
+    }
+    
+    .message.admin {
+        justify-content: flex-start;
+    }
+    
+    .message-bubble {
+        max-width: 80%;
+        padding: 10px 14px;
+        border-radius: 18px;
+        word-wrap: break-word;
+    }
+    
+    .message.user .message-bubble {
+        background: #667eea;
+        color: white;
+        border-bottom-right-radius: 4px;
+    }
+    
+    .message.admin .message-bubble {
+        background: #e8f5e9;
+        color: #333;
+        border-bottom-left-radius: 4px;
+    }
+    
+    .message-info {
+        font-size: 10px;
+        color: #999;
+        margin-top: 4px;
+        text-align: center;
+    }
+    
+    .reply-area {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        padding-top: 12px;
+        border-top: 1px solid #eee;
+        flex-shrink: 0;
+        background: white;
+    }
+    
+    .reply-input {
+        flex: 1;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 24px;
+        resize: none;
+        font-size: 14px;
+        font-family: inherit;
+        background: #f9f9f9;
+        min-height: 44px;
+        max-height: 100px;
+    }
+    
+    .reply-input:focus {
+        outline: none;
+        border-color: #667eea;
+        background: white;
+    }
+    
+    .send-btn {
+        background: #667eea;
+        color: white;
+        border: none;
+        border-radius: 24px;
+        padding: 0 20px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+    
+    .send-btn:active {
+        transform: scale(0.96);
+        background: #5a67d8;
+    }
+
+    /* ========== 新增：客服聊天图片相关样式 ========== */
+    .support-chat-image {
+        max-width: 180px;
+        max-height: 180px;
+        border-radius: 10px;
+        display: block;
+        cursor: zoom-in;
+        object-fit: cover;
+    }
+
+    .support-image-expired {
+        font-size: 12px;
+        color: #999;
+        font-style: italic;
+    }
+
+    .image-btn {
+        background: #f0f2f5;
+        border: 1px solid #ddd;
+        border-radius: 24px;
+        width: 44px;
+        height: 44px;
+        font-size: 18px;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+
+    .image-btn:active {
+        transform: scale(0.96);
+    }
+
+    .image-preview-wrap {
+        position: relative;
+        width: 64px;
+        margin-bottom: 8px;
+    }
+
+    .image-preview-wrap img {
+        width: 64px;
+        height: 64px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        display: block;
+    }
+
+    .image-preview-remove {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #e53e3e;
+        color: #fff;
+        border: none;
+        font-size: 12px;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .image-lightbox-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.85);
+        z-index: 99999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: zoom-out;
+    }
+
+    .image-lightbox-overlay img {
+        max-width: 92vw;
+        max-height: 92vh;
+        border-radius: 8px;
+    }
+    /* ========== 新增结束 ========== */
+    
+    /* ========== 提现表格样式 ========== */
+    .withdraw-table-wrap {
+        overflow-y: auto;
+        flex: 1;
+    }
+    
+    .withdraw-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        min-width: 700px;
+    }
+    
+    .withdraw-table th {
+        padding: 10px 8px;
+        text-align: left;
+        border-bottom: 1px solid #e0e0e0;
+        background: #f8f9fa;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+    
+    .withdraw-table td {
+        padding: 10px 8px;
+        text-align: left;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .status-badge {
+        padding: 2px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+    }
+    .status-pending { background: #fef3c7; color: #d97706; }
+    .status-completed { background: #d1fae5; color: #059669; }
+    .status-rejected { background: #fee; color: #c62828; }
+    
+    .btn-confirm {
+        padding: 4px 12px;
+        background: #48bb78;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+        margin-right: 4px;
+    }
+    .btn-confirm:active { transform: scale(0.95); }
+    
+    .btn-reject {
+        padding: 4px 12px;
+        background: #e53e3e;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 12px;
+    }
+    .btn-reject:active { transform: scale(0.95); }
+    
+    .filter-bar {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 16px;
+        flex-wrap: wrap;
+        flex-shrink: 0;
+    }
+    
+    .filter-bar input,
+    .filter-bar select {
+        padding: 10px 14px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 14px;
+        background: #f9f9f9;
+    }
+    
+    .filter-bar input { flex: 1; min-width: 150px; }
+    .filter-bar select { min-width: 120px; }
+    
+    .filter-bar button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    .btn-search { background: #667eea; color: white; }
+    .btn-refresh { background: #48bb78; color: white; }
+    .filter-bar button:active { transform: scale(0.95); }
+    
+    @media (max-width: 767px) {
+        .two-columns {
+            flex-direction: column;
+        }
+        .col-left, .col-right {
+            flex: 1;
+        }
+        .col-left.hide-on-mobile {
+            display: none;
+        }
+        .col-right {
+            display: flex;
+        }
+        .col-right.hide-on-mobile-init {
+            display: none;
+        }
+        .header {
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 6px;
+        }
+        .header h1 { font-size: 16px; }
+        .header-center { order: 3; width: 100%; justify-content: center; }
+        .user-info { order: 2; }
+    }
+    
+    .login-container {
+        max-width: 400px;
+        margin: 0 auto;
+        padding: 40px 20px;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+    }
+    
+    .login-card {
+        background: white;
+        border-radius: 24px;
+        padding: 24px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        width: 100%;
+    }
+    
+    .login-input {
+        width: 100%;
+        padding: 14px;
+        margin: 10px 0;
+        border: 1px solid #ddd;
+        border-radius: 12px;
+        font-size: 16px;
+        background: #f9f9f9;
+    }
+    
+    .login-input:focus {
+        outline: none;
+        border-color: #667eea;
+        background: white;
+    }
+    
+    .login-btn {
+        width: 100%;
+        background: #667eea;
+        color: white;
+        padding: 14px;
+        border: none;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 10px;
+    }
+    
+    .login-btn:active {
+        transform: scale(0.98);
+    }
+    
+    .error-text {
+        color: #e53e3e;
+        margin-top: 10px;
+        text-align: center;
+        font-size: 13px;
+    }
+    
+    .hidden {
+        display: none !important;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: #999;
+    }
+    
+    .modal-toast {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #333;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 40px;
+        z-index: 2000;
+        text-align: center;
+        max-width: 80%;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        animation: fadeInOut 2s ease-in-out forwards;
+        font-size: 13px;
+    }
+    
+    .modal-toast.error { background: #e53e3e; }
+    .modal-toast.success { background: #48bb78; }
+    
+    @keyframes fadeInOut {
+        0% { opacity: 0; transform: translateX(-50%) translateY(20px); }
+        15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+        85% { opacity: 1; transform: translateX(-50%) translateY(0); }
+        100% { opacity: 0; transform: translateX(-50%) translateY(20px); visibility: hidden; }
+    }
+    </style>
+</head>
+<body>
+
+<!-- ========== 登录页 ========== -->
+<div id="loginPage">
+    <div class="login-container">
+        <div class="login-card">
+            <h3 style="text-align: center; margin-bottom: 20px;">🎧 客服登录</h3>
+            <input type="text" id="loginUsername" class="login-input" placeholder="用户名" autocomplete="username">
+            <input type="password" id="loginPassword" class="login-input" placeholder="密码" autocomplete="current-password">
+            <button id="doLoginBtn" class="login-btn">登录</button>
+            <div id="loginError" class="error-text"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 主面板 ========== -->
+<div id="dashboardPage" class="hidden">
+    <div class="header">
+        <h1>🎧 客服中心</h1>
+        <div class="header-center">
+            <button class="tab-btn active" data-tab="chat">💬 会话</button>
+            <button class="tab-btn" data-tab="withdraw">💳 提现</button>
+            <span id="withdrawBadge">0</span>
+            <button class="tab-btn" data-tab="quickReplies">⚡ 预设回复</button>
+        </div>
+        <div class="user-info">
+            <span id="adminUsername">客服</span>
+            <button id="notificationBtn" class="notification-btn">🔔 开启通知</button>
+            <button id="logoutBtn" class="logout-btn">退出</button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="card">
+            
+            <!-- ========================================================= -->
+            <!-- ========== Tab1: 客服会话 ========== -->
+            <!-- ========================================================= -->
+            <div id="chatTab">
+                <h3>
+                    💬 客服会话
+                    <span id="supportUnreadBadge" style="display: none; background: #e53e3e; color: white; border-radius: 20px; padding: 2px 10px; font-size: 11px;"></span>
+                    <button id="markAllReadBtn" onclick="markAllSupportRead()" style="float: right; background: #48bb78; color: white; border: none; border-radius: 6px; padding: 6px 14px; font-size: 13px; cursor: pointer;">✅ 一键已读</button>
+                </h3>
+                
+                <div class="two-columns">
+                    <!-- 左侧：会话列表 -->
+                    <div class="col-left" id="conversationsColumn">
+                        <!-- ========== 新增：按邮箱直接发起对话 ========== -->
+                        <div style="display:flex; gap:6px; padding:8px; box-sizing:border-box;">
+                            <input id="findUserEmailInput" type="text" placeholder="输入用户邮箱" style="flex:1; padding:6px 8px; border:1px solid #ddd; border-radius:6px; font-size:13px;">
+                            <button onclick="startChatByEmail()" style="background:#4f46e5; color:white; border:none; border-radius:6px; padding:6px 12px; font-size:13px; cursor:pointer; white-space:nowrap;">发起对话</button>
+                        </div>
+                        <!-- ========== 新增结束 ========== -->
+
+                        <div id="supportConversationsList" class="conversations-list">
+                            <div class="empty-state">加载中...</div>
+
+                        </div>
+                    </div>
+                    
+                    <!-- 右侧：聊天区域 -->
+                    <div class="col-right hide-on-mobile-init" id="chatColumn">
+                        <div id="supportChatContainer" class="chat-container">
+                            <div class="empty-state">选择左侧会话开始聊天</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ========================================================= -->
+            <!-- ========== Tab2: 卡片提现审核 ========== -->
+            <!-- ========================================================= -->
+            <div id="withdrawTab">
+                <h3>💳 卡片提现审核</h3>
+                
+                <div class="filter-bar">
+                    <input type="text" id="cardWithdrawSearchInput" placeholder="搜索用户邮箱...">
+                    <select id="cardWithdrawStatusFilter">
+                        <option value="">全部状态</option>
+                        <option value="pending">⏳ 待处理</option>
+                        <option value="completed">✅ 已完成</option>
+                        <option value="rejected">❌ 已拒绝</option>
+                    </select>
+                    <button id="searchCardWithdrawBtn" class="btn-search">🔍 搜索</button>
+                    <button id="refreshCardWithdrawBtn" class="btn-refresh">🔄 刷新</button>
+                </div>
+                
+                <div class="withdraw-table-wrap">
+                    <table class="withdraw-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>用户</th>
+                                <th>金额(HKD)</th>
+                                <th>卡片</th>
+                                <th>状态</th>
+                                <th>申请时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cardWithdrawTableBody">
+                            <tr><td colspan="7" style="text-align:center; padding:40px; color:#999;">加载中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ========================================================= -->
+            <!-- ========== Tab3: 预设回复设置 ========== -->
+            <!-- ========================================================= -->
+            <div id="quickRepliesTab" style="display:none;">
+                <h3>⚡ 预设回复设置</h3>
+                <div style="padding:0 4px 12px; font-size:13px; color:#888;">
+                    设置7条常用长句和对应的按钮短名称，会显示在客服聊天回复框下方，点击即可快速填入回复内容（填入后仍可编辑，再点"发送"）。
+                </div>
+                <div id="quickRepliesForm"></div>
+                <div style="margin-top:16px;">
+                    <button id="saveQuickRepliesBtn" onclick="saveQuickReplies()" style="background:#667eea; color:white; border:none; border-radius:8px; padding:10px 24px; font-size:14px; cursor:pointer;">保存设置</button>
+                </div>
+
+                <!-- ========== 新增：存量用户绑卡提醒 ========== -->
+                <div style="margin-top:28px; border-top:1px solid #eee; padding-top:16px;">
+                    <h3 style="margin-bottom:6px;">📮 存量用户绑卡提醒</h3>
+                    <div style="padding:0 4px 12px; font-size:13px; color:#888;">
+                        针对"KYC已通过，但从未开始绑卡"的存量用户，手动批量补发一条"请点击立即绑卡"的提醒消息（不会自动群发，需要你手动点击）。
+                    </div>
+                    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+                        <button id="legacyBindCountBtn" onclick="queryLegacyBindCount()" style="background:#f0f2f5; color:#333; border:1px solid #ddd; border-radius:8px; padding:9px 18px; font-size:13px; cursor:pointer;">查询数量</button>
+                        <span id="legacyBindCountResult" style="font-size:13px; color:#666;"></span>
+                    </div>
+                    <div style="margin-top:12px;">
+                        <button id="legacyBindSendBtn" onclick="sendLegacyBindReminder()" disabled style="background:#21c592; color:white; border:none; border-radius:8px; padding:10px 24px; font-size:14px; cursor:not-allowed; opacity:0.5;">发送提醒</button>
+                    </div>
+                </div>
+                <!-- ========== 新增结束 ========== -->
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+<script>
+    // ============= 全局变量 =============
+    let currentSupportUser = null;
+    let currentSupportUserEmail = null;
+    let supportMessages = [];
+    let supportPollingTimer = null;
+    let withdrawPollingTimer = null;
+    let isMobile = window.innerWidth <= 767;
+    let pushSubscription = null;
+    let cardWithdrawData = [];
+    let quickRepliesData = [];             // 客服预设回复（7条）
+    let currentSupportCardDisplayName = null;  // 当前会话用户的卡片显示姓名（用于改名弹窗预填）
+    let supportReplyPendingImage = null;   // 客服端：待发送的图片（压缩后的 base64）
+    
+    // ============= 工具函数 =============
+    function showModalToast(msg, isError = false) {
+        const existing = document.querySelector('.modal-toast');
+        if (existing) existing.remove();
+        const toast = document.createElement('div');
+        toast.className = `modal-toast ${isError ? 'error' : 'success'}`;
+        toast.innerHTML = isError ? `❌ ${msg}` : `✅ ${msg}`;
+        document.body.appendChild(toast);
+        setTimeout(() => { if (toast && toast.parentNode) toast.remove(); }, 2000);
+    }
+
+    // ========== 新增：客服聊天图片工具函数 ==========
+    // 选择图片后在浏览器端压缩（限制最长边，转成 JPEG），减少上传体积
+    function compressImageForSupport(file, maxDim = 1280, quality = 0.7) {
+        return new Promise((resolve, reject) => {
+            if (!file || !file.type || !file.type.startsWith('image/')) {
+                reject(new Error('请选择图片文件'));
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    let { width, height } = img;
+                    if (width > maxDim || height > maxDim) {
+                        if (width > height) {
+                            height = Math.round(height * (maxDim / width));
+                            width = maxDim;
+                        } else {
+                            width = Math.round(width * (maxDim / height));
+                            height = maxDim;
+                        }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', quality));
+                };
+                img.onerror = () => reject(new Error('图片加载失败'));
+                img.src = e.target.result;
+            };
+            reader.onerror = () => reject(new Error('图片读取失败'));
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // 点击聊天里的图片，弹出全屏大图查看
+    function viewSupportImage(url) {
+        if (!url) return;
+        const overlay = document.createElement('div');
+        overlay.className = 'image-lightbox-overlay';
+        const img = document.createElement('img');
+        img.src = url;
+        img.onclick = (e) => e.stopPropagation();
+        overlay.appendChild(img);
+        overlay.onclick = () => overlay.remove();
+        document.body.appendChild(overlay);
+    }
+
+    // 根据一条消息生成显示内容：图片（未过期/已过期）+ 文字 + 按钮消息（客服端只展示，不可点击）
+    function renderSupportMessageContent(msg) {
+        let html = '';
+        if (msg.attachment) {
+            const safeUrl = escapeHtml(msg.attachment);
+            html += `<img src="${safeUrl}" class="support-chat-image" onclick="viewSupportImage('${safeUrl}')" style="${msg.message ? 'margin-bottom:6px;' : ''}">`;
+        } else if (msg.attachment_expired) {
+            html += `<div class="support-image-expired" style="${msg.message ? 'margin-bottom:6px;' : ''}">🖼 图片已过期清除</div>`;
+        }
+        if (msg.message) {
+            html += `<div>${escapeHtml(msg.message)}</div>`;
+        }
+        // ========== 新增：带按钮的消息，客服端只作展示（真正的按钮是给用户在 App 里点的） ==========
+        if (msg.msg_type === 'action_button' && msg.action_data) {
+            let actionData = null;
+            try { actionData = typeof msg.action_data === 'string' ? JSON.parse(msg.action_data) : msg.action_data; } catch (e) {}
+            if (actionData && actionData.label) {
+                html += `<div style="margin-top:8px; display:inline-block; background:#eef9f3; color:#21c592; border:1px solid #b8ecd4; border-radius:8px; padding:6px 12px; font-size:12px; font-weight:600;">🔘 ${escapeHtml(actionData.label)}（用户端按钮）</div>`;
+            }
+        }
+        // ========== 新增结束 ==========
+        return html;
+    }
+    // ========== 客服聊天图片工具函数 结束 ==========
+    
+    function toBeijingTime(dateStr) {
+        if (!dateStr) return '-';
+        if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dateStr)) return dateStr;
+        const date = new Date(dateStr);
+        date.setHours(date.getHours() + 8);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    }
+    
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    window.addEventListener('resize', () => {
+        isMobile = window.innerWidth <= 767;
+        if (!isMobile && currentSupportUser) {
+            document.getElementById('conversationsColumn')?.classList.remove('hide-on-mobile');
+            const chatColumn = document.getElementById('chatColumn');
+            if (chatColumn) {
+                chatColumn.classList.remove('hide-on-mobile-init');
+                chatColumn.style.display = 'flex';
+            }
+        }
+    });
+    
+    // ============= 登录相关 =============
+    async function checkAdminSession() {
+        try {
+            const res = await fetch('/api/admin/check-session');
+            const data = await res.json();
+            if (data.loggedIn) {
+                document.getElementById('loginPage').classList.add('hidden');
+                document.getElementById('dashboardPage').classList.remove('hidden');
+                document.getElementById('adminUsername').innerText = data.username;
+                loadSupportConversations();
+                startSupportPolling();
+                updateNotificationButtonUI();
+                loadCardWithdrawList();
+                startWithdrawPolling();
+                loadQuickReplies();
+            } else {
+                document.getElementById('loginPage').classList.remove('hidden');
+                document.getElementById('dashboardPage').classList.add('hidden');
+            }
+        } catch(e) { console.error('检查登录失败:', e); }
+    }
+    
+    // ============= 客服功能 =============
+    // ========== 新增：统一维护 PWA 图标角标（OS 级），跟页面内小红点保持一致 ==========
+    // 之前的 bug：openSupportChat 打开某一个会话时会直接 navigator.clearAppBadge() 整体清零，
+    // 哪怕还有其他会话未读，角标也被错误清空；而这里（页面轮询/加载会话列表时）又完全没有同步更新角标，
+    // 角标只在 sw.js 收到推送时才会被设置，导致"有时候准有时候不准"。
+    // 现在统一由这里根据服务器返回的真实总未读数来设置/清除角标，所有会触发 loadSupportConversations() 的地方
+    // （轮询、打开会话、发送回复后等）角标都会自动跟着刷新，不再单独调用 clearAppBadge()。
+    function updateAppBadge(totalUnread) {
+        if (!('setAppBadge' in navigator)) return; // 不支持 Badging API 的浏览器/平台（如桌面 Safari/Firefox、Android Chrome）直接跳过
+        const p = totalUnread > 0 ? navigator.setAppBadge(totalUnread) : navigator.clearAppBadge();
+        if (p && p.catch) {
+            p.catch(() => {
+                // 可能因为用户未授权通知权限、或平台本身不支持而被拒绝，静默忽略
+            });
+        }
+    }
+    // ========== 新增结束 ==========
+
+    async function loadSupportConversations() {
+        try {
+            const res = await fetch('/api/admin/support/conversations');
+            const data = await res.json();
+            if (data.success) {
+                renderConversations(data.conversations);
+                const totalUnread = data.conversations.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
+                const badge = document.getElementById('supportUnreadBadge');
+                if (badge) {
+                    if (totalUnread > 0) {
+                        badge.style.display = 'inline-block';
+                        badge.innerText = totalUnread > 99 ? '99+' : totalUnread;
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                }
+                updateAppBadge(totalUnread);
+            }
+        } catch(e) {
+            console.error('加载会话列表失败:', e);
+        }
+    }
+
+    // ========== 新增：一键已读，把所有会话的未读消息全局清零 ==========
+    async function markAllSupportRead() {
+        const btn = document.getElementById('markAllReadBtn');
+        if (!confirm('确定要将所有会话标记为已读吗？')) return;
+        if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+        try {
+            const res = await fetch('/api/admin/support/clear-all-unread', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                await loadSupportConversations();
+            } else {
+                alert(data.error || '操作失败，请稍后重试');
+            }
+        } catch (e) {
+            console.error('一键已读失败:', e);
+            alert('操作失败，请检查网络连接');
+        } finally {
+            if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+        }
+    }
+    // ========== 新增结束 ==========
+    
+    function renderConversations(conversations) {
+        const container = document.getElementById('supportConversationsList');
+        if (!container) return;
+        if (!conversations || conversations.length === 0) {
+            container.innerHTML = '<div class="empty-state">暂无客服会话</div>';
+            return;
+        }
+        let html = '';
+        for (const conv of conversations) {
+            const unreadClass = conv.unread_count > 0 ? 'unread' : '';
+            const unreadBadge = conv.unread_count > 0 ? `<span class="unread-badge">${conv.unread_count > 99 ? '99+' : conv.unread_count}</span>` : '';
+            html += `
+                <div class="conv-item ${unreadClass}" data-userid="${conv.user_id}">
+                    <div class="conv-header">
+                        <span class="conv-email">${escapeHtml(conv.user_email)}</span>
+                        ${unreadBadge}
+                    </div>
+                    <div class="conv-last-message">${escapeHtml(conv.last_message || '无消息')}</div>
+                    <div class="conv-time">${toBeijingTime(conv.last_message_time)}</div>
+                </div>
+            `;
+        }
+        container.innerHTML = html;
+        document.querySelectorAll('.conv-item').forEach(el => {
+            el.onclick = () => openSupportChat(el.dataset.userid);
+        });
+    }
+    
+    // ========== 新增：按邮箱直接发起对话 ==========
+    async function startChatByEmail() {
+        const input = document.getElementById('findUserEmailInput');
+        const email = input?.value?.trim();
+        if (!email) {
+            showModalToast('请输入邮箱', true);
+            return;
+        }
+        try {
+            const res = await fetch(`/api/admin/support/find-user?email=${encodeURIComponent(email)}`);
+            const data = await res.json();
+            if (!data.success) {
+                showModalToast(data.error || '未找到该用户', true);
+                return;
+            }
+            input.value = '';
+            // 移动端需要先切换到聊天列显示
+            if (isMobile) {
+                document.getElementById('conversationsColumn')?.classList.add('hide-on-mobile');
+                const chatColumn = document.getElementById('chatColumn');
+                if (chatColumn) {
+                    chatColumn.classList.remove('hide-on-mobile-init');
+                    chatColumn.style.display = 'flex';
+                }
+            }
+            await openSupportChat(data.uid);
+        } catch (e) {
+            console.error('查找用户失败:', e);
+            showModalToast('查找用户失败', true);
+        }
+    }
+    // ========== 新增结束 ==========
+
+    // ========== 修改：手动绑卡（针对当前正在聊天的用户，直接输入完整卡号，一次核实） ==========
+    // 之前先输入后四位，撞号（同后四位命中多张未绑定卡）的情况很多，
+    // 客服还要再和用户核实一次完整卡号，体验差且容易出绑卡异常。
+    // 完整卡号理论上唯一，第一次就要完整卡号可以从根上避免撞号。
+    async function manualBindCard() {
+        if (!currentSupportUser || !currentSupportUserEmail) {
+            showModalToast('请先打开一个用户的对话', true);
+            return;
+        }
+
+        const fullCardNumberInput = document.getElementById('chatBindCardLast4Input');
+        const fullCardNumber = fullCardNumberInput?.value?.trim();
+        if (!fullCardNumber || !/^\d{12,19}$/.test(fullCardNumber)) {
+            showModalToast('请输入正确的完整卡号（12-19位数字）', true);
+            return;
+        }
+
+        const email = currentSupportUserEmail;
+        const btn = document.getElementById('chatBindCardBtn');
+        const originalText = btn?.innerText;
+        if (btn) { btn.innerText = '核对中...'; btn.disabled = true; }
+
+        try {
+            // 第一步：只核对，拿到 KYC 姓名，不实际绑卡
+            const lookupData = await requestBindCardLookup(email, fullCardNumber);
+
+            if (!lookupData.success) {
+                showModalToast(lookupData.error || '绑卡失败，请自行手动绑卡', true);
+                return;
+            }
+
+            const confirmed = confirm(
+                `即将为 ${email} 绑定卡片（卡号后四位 ${fullCardNumber.slice(-4)}）\n\nKYC 姓名：${lookupData.name}\n\n请核对姓名与用户信息一致后点击"确定"进行绑卡`
+            );
+            if (!confirmed) return;
+
+            // 第二步：客服确认无误后才真正执行绑卡
+            if (btn) { btn.innerText = '绑定中...'; }
+            const bindRes = await fetch('/api/admin/support/bind-card-by-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, fullCardNumber })
+            });
+            const bindData = await bindRes.json();
+            if (bindData.success) {
+                showModalToast('绑卡成功');
+                fullCardNumberInput.value = '';
+            } else {
+                showModalToast(bindData.error || '绑卡失败，请自行手动绑卡', true);
+            }
+        } catch (e) {
+            console.error('手动绑卡失败:', e);
+            showModalToast('绑卡失败，请自行手动绑卡', true);
+        } finally {
+            if (btn) { btn.innerText = originalText; btn.disabled = false; }
+        }
+    }
+
+    // ========== 手动绑卡第一步核对请求的公共封装 ==========
+    async function requestBindCardLookup(email, fullCardNumber) {
+        const res = await fetch('/api/admin/support/bind-card-lookup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, fullCardNumber })
+        });
+        return res.json();
+    }
+
+    // ========== 新增：修改卡片显示姓名（沿用 admin.html 的改名逻辑，针对当前会话用户） ==========
+    function showRenameCardModal() {
+        if (!currentSupportUser || !currentSupportUserEmail) {
+            showModalToast('请先打开一个用户的对话', true);
+            return;
+        }
+        const userId = currentSupportUser;
+        const email = currentSupportUserEmail;
+        const currentName = currentSupportCardDisplayName || '';
+
+        const modalHtml = `
+            <div id="renameCardModal" class="modal" style="display:flex; position:fixed; inset:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; z-index:9999;" onclick="if(event.target===this) closeRenameCardModal()">
+                <div class="modal-content" style="max-width: 450px; width: 90%; background:white; border-radius:12px; padding:20px;">
+                    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                        <h3 style="margin:0;">✏️ 修改卡片显示姓名</h3>
+                        <button class="modal-close" onclick="closeRenameCardModal()" style="background:none; border:none; font-size:22px; cursor:pointer; color:#999;">×</button>
+                    </div>
+                    <div>
+                        <div class="form-group" style="margin-bottom:12px;">
+                            <label>用户: <strong>${escapeHtml(email)}</strong></label>
+                        </div>
+                        <div class="form-group" style="margin-bottom:12px;">
+                            <label style="display:block; margin-bottom:4px; font-size:13px; color:#666;">当前显示姓名</label>
+                            <input type="text" id="currentCardName" value="${escapeHtml(currentName) || '（未设置，使用PokePay原始数据）'}" disabled style="background:#f5f5f5; color:#666; width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; box-sizing:border-box;">
+                        </div>
+                        <div class="form-group" style="margin-bottom:12px;">
+                            <label style="display:block; margin-bottom:4px; font-size:13px; color:#666;">新姓名（留空则恢复使用原始姓名）</label>
+                            <input type="text" id="newCardName" placeholder="请输入新姓名（1-50字符）" value="${escapeHtml(currentName)}" maxlength="50" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; box-sizing:border-box;">
+                            <div style="font-size: 12px; color: #888; margin-top: 4px;">
+                                💡 支持中英文、数字、空格、点、连字符
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 12px; margin-top: 16px;">
+                            <button class="btn btn-primary" onclick="confirmRenameCard('${userId}')" style="flex:1; padding:10px; background:#667eea; color:white; border:none; border-radius:8px; cursor:pointer;">确认修改</button>
+                            <button class="btn btn-secondary" onclick="closeRenameCardModal()" style="flex:1; padding:10px; background:#e2e8f0; color:#333; border:none; border-radius:8px; cursor:pointer;">取消</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const existing = document.getElementById('renameCardModal');
+        if (existing) existing.remove();
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        document.getElementById('newCardName').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                confirmRenameCard(userId);
+            }
+        });
+    }
+
+    function closeRenameCardModal() {
+        const modal = document.getElementById('renameCardModal');
+        if (modal) modal.remove();
+    }
+
+    async function confirmRenameCard(userId) {
+        const newName = document.getElementById('newCardName').value.trim();
+
+        const confirmMsg = newName
+            ? `确认将用户卡片姓名修改为：${newName}？`
+            : '确认清空自定义姓名，恢复使用PokePay原始数据？';
+
+        if (!confirm(confirmMsg)) return;
+
+        const btn = document.querySelector('#renameCardModal .btn-primary');
+        const originalText = btn.innerText;
+        btn.disabled = true;
+        btn.innerText = '提交中...';
+        btn.style.opacity = '0.5';
+
+        try {
+            const res = await fetch('/api/admin/user/update-card-name', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: userId,
+                    displayName: newName || null
+                })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                showModalToast(newName ? `姓名已修改为：${newName}` : '已恢复使用原始姓名', false);
+                currentSupportCardDisplayName = newName || null;
+                closeRenameCardModal();
+            } else {
+                showModalToast(data.error || '修改失败', true);
+            }
+        } catch(e) {
+            showModalToast('修改失败: ' + e.message, true);
+        } finally {
+            btn.disabled = false;
+            btn.innerText = originalText;
+            btn.style.opacity = '1';
+        }
+    }
+    // ========== 新增结束 ==========
+
+    // ========== 新增：客服预设回复（快捷回复） ==========
+    async function loadQuickReplies() {
+        try {
+            const res = await fetch('/api/admin/support/quick-replies');
+            const data = await res.json();
+            if (data.success) {
+                quickRepliesData = data.quickReplies || [];
+                renderQuickRepliesForm();
+                renderQuickReplyButtons();
+            }
+        } catch (e) {
+            console.error('加载预设回复失败:', e);
+        }
+    }
+
+    function renderQuickRepliesForm() {
+        const container = document.getElementById('quickRepliesForm');
+        if (!container) return;
+        let html = '';
+        for (let i = 0; i < 7; i++) {
+            const item = quickRepliesData[i] || { label: '', message: '', enabled: false, keywords: [] };
+            const keywordsStr = Array.isArray(item.keywords) ? item.keywords.join('，') : '';
+            html += `
+                <div style="border:1px solid #eee; border-radius:10px; padding:14px; margin-bottom:12px;">
+                    <label style="display:block; margin-bottom:4px; font-size:13px; color:#666;">按钮短名称（第 ${i+1} 条）</label>
+                    <input type="text" id="quickReplyLabel${i}" value="${escapeHtml(item.label || '')}" maxlength="20" placeholder="例如：欢迎语" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; font-size:13px; box-sizing:border-box; margin-bottom:10px;">
+                    <label style="display:block; margin-bottom:4px; font-size:13px; color:#666;">预设回复内容</label>
+                    <textarea id="quickReplyMessage${i}" rows="3" maxlength="1000" placeholder="请输入完整的回复长句..." style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; font-size:13px; box-sizing:border-box; resize:vertical; margin-bottom:10px;">${escapeHtml(item.message || '')}</textarea>
+                    <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#333; margin-bottom:8px; cursor:pointer;">
+                        <input type="checkbox" id="quickReplyEnabled${i}" ${item.enabled ? 'checked' : ''}>
+                        开启关键词自动回复
+                    </label>
+                    <label style="display:block; margin-bottom:4px; font-size:13px; color:#666;">触发关键词（用中文逗号"，"或英文逗号","分隔，消息中包含即命中，不区分大小写）</label>
+                    <input type="text" id="quickReplyKeywords${i}" value="${escapeHtml(keywordsStr)}" placeholder="例如：KYC，绑卡" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px; font-size:13px; box-sizing:border-box;">
+                </div>
+            `;
+        }
+        container.innerHTML = html;
+    }
+
+    async function saveQuickReplies() {
+        const newData = [];
+        for (let i = 0; i < 7; i++) {
+            const label = document.getElementById(`quickReplyLabel${i}`)?.value?.trim() || '';
+            const message = document.getElementById(`quickReplyMessage${i}`)?.value?.trim() || '';
+            const enabled = !!document.getElementById(`quickReplyEnabled${i}`)?.checked;
+            const keywordsRaw = document.getElementById(`quickReplyKeywords${i}`)?.value || '';
+            const keywords = keywordsRaw.split(/[，,]/).map(k => k.trim()).filter(Boolean);
+            if (!label) {
+                showModalToast(`第 ${i+1} 条的按钮短名称不能为空`, true);
+                return;
+            }
+            if (enabled && !message) {
+                showModalToast(`第 ${i+1} 条开启了自动回复，但回复内容为空`, true);
+                return;
+            }
+            if (enabled && keywords.length === 0) {
+                showModalToast(`第 ${i+1} 条开启了自动回复，但没有设置关键词`, true);
+                return;
+            }
+            newData.push({ label, message, enabled, keywords });
+        }
+
+        const btn = document.getElementById('saveQuickRepliesBtn');
+        const originalText = btn?.innerText;
+        if (btn) { btn.innerText = '保存中...'; btn.disabled = true; }
+
+        try {
+            const res = await fetch('/api/admin/support/quick-replies', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ quickReplies: newData })
+            });
+            const data = await res.json();
+            if (data.success) {
+                showModalToast('预设回复已保存');
+                quickRepliesData = newData;
+                renderQuickReplyButtons();
+            } else {
+                showModalToast(data.error || '保存失败', true);
+            }
+        } catch (e) {
+            console.error('保存预设回复失败:', e);
+            showModalToast('保存失败', true);
+        } finally {
+            if (btn) { btn.innerText = originalText; btn.disabled = false; }
+        }
+    }
+
+    // ========== 新增：存量用户绑卡提醒 ==========
+    async function queryLegacyBindCount() {
+        const btn = document.getElementById('legacyBindCountBtn');
+        const resultEl = document.getElementById('legacyBindCountResult');
+        const sendBtn = document.getElementById('legacyBindSendBtn');
+        if (btn) { btn.disabled = true; btn.innerText = '查询中...'; }
+        try {
+            const res = await fetch('/api/admin/support/legacy-bind-users-count');
+            const data = await res.json();
+            if (data.success) {
+                resultEl.textContent = `当前符合条件（KYC已通过、从未绑卡、未发送过提醒）的用户共 ${data.count} 人`;
+                if (sendBtn) {
+                    sendBtn.disabled = data.count === 0;
+                    sendBtn.style.opacity = data.count === 0 ? '0.5' : '1';
+                    sendBtn.style.cursor = data.count === 0 ? 'not-allowed' : 'pointer';
+                }
+            } else {
+                resultEl.textContent = data.error || '查询失败';
+            }
+        } catch (e) {
+            resultEl.textContent = '查询失败';
+        } finally {
+            if (btn) { btn.disabled = false; btn.innerText = '查询数量'; }
+        }
+    }
+
+    async function sendLegacyBindReminder() {
+        if (!confirm('确认要给所有符合条件的存量用户发送"请立即绑卡"提醒吗？此操作不可撤销。')) return;
+        const btn = document.getElementById('legacyBindSendBtn');
+        if (btn) { btn.disabled = true; btn.innerText = '发送中...'; }
+        try {
+            const res = await fetch('/api/admin/support/legacy-bind-send-reminder', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                showModalToast(`已发送提醒，共 ${data.sent} 人`);
+                document.getElementById('legacyBindCountResult').textContent = `本次已发送 ${data.sent} 人`;
+            } else {
+                showModalToast(data.error || '发送失败', true);
+            }
+        } catch (e) {
+            showModalToast('发送失败', true);
+        } finally {
+            if (btn) { btn.innerText = '发送提醒'; btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed'; }
+        }
+    }
+    // ========== 新增结束 ==========
+    function renderQuickReplyButtons() {
+        const container = document.getElementById('quickReplyButtonsRow');
+        if (!container) return;
+        let html = '';
+        quickRepliesData.forEach((item, i) => {
+            if (!item.message) return; // 没配置内容的按钮不显示，避免点了填个空白
+            html += `<button type="button" class="quick-reply-btn" onclick="useQuickReply(${i})">${escapeHtml(item.label || ('快捷回复' + (i+1)))}</button>`;
+        });
+        container.innerHTML = html;
+    }
+
+    // 点击预设回复按钮：把内容填入回复框，客服确认或编辑后再点"发送"
+    function useQuickReply(index) {
+        const item = quickRepliesData[index];
+        if (!item) return;
+        const input = document.getElementById('supportReplyInput');
+        if (input) {
+            input.value = item.message;
+            input.focus();
+        }
+    }
+    // ========== 新增结束 ==========
+
+    async function openSupportChat(userId) {
+        const oldInput = document.getElementById('supportReplyInput');
+        if (oldInput) { oldInput.value = ''; }
+        currentSupportUser = userId;
+        if (isMobile) {
+            document.getElementById('conversationsColumn')?.classList.add('hide-on-mobile');
+            const chatColumn = document.getElementById('chatColumn');
+            if (chatColumn) {
+                chatColumn.classList.remove('hide-on-mobile-init');
+                chatColumn.style.display = 'flex';
+            }
+        }
+        try {
+            await fetch('/api/admin/support/clear-unread', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: userId })
+            });
+            // 注意：这里不再单独调用 navigator.clearAppBadge()。
+            // loadSupportConversations() 会用服务器返回的最新总未读数统一刷新角标，
+            // 如果还有其他会话未读，角标会正确显示剩余数量，而不是被整体清零。
+            await loadSupportConversations();
+        } catch(e) {}
+        try {
+            const res = await fetch(`/api/admin/support/messages/${userId}?limit=500`);
+            const data = await res.json();
+            if (data.success) {
+                supportMessages = data.messages;
+                currentSupportUserEmail = data.userEmail;
+                currentSupportCardDisplayName = data.cardDisplayName || null;
+                renderChat(data.userEmail, userId, data.userIp, data.userStatus);
+            }
+        } catch(e) {
+            showModalToast('加载消息失败', true);
+        }
+    }
+    
+    function renderChat(userEmail, userId, userIp, userStatus) {
+        const container = document.getElementById('supportChatContainer');
+        if (!container) return;
+        const existingChatHeader = container.querySelector('.chat-header');
+        // 只有当左侧还是同一个用户的会话时，才走增量更新；切换到别的用户必须整体重新渲染，
+        // 否则会出现头部邮箱/IP没刷新、甚至显示上一个用户消息的问题
+        if (existingChatHeader && existingChatHeader.dataset.chatUser === String(userId)) {
+            const messagesDiv = container.querySelector('#chatMessages');
+            if (messagesDiv) {
+                updateMessagesIncremental(messagesDiv);
+                return;
+            }
+        }
+        let messagesHtml = '';
+        const sortedMessages = [...supportMessages].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        for (const msg of sortedMessages) {
+            const isUser = msg.direction === 'user';
+            const msgId = msg.id || Date.now() + '_' + Math.random();
+            messagesHtml += `
+                <div class="message ${isUser ? 'user' : 'admin'}" data-msg-id="${msgId}">
+                    <div class="message-bubble">
+                        <div style="font-size: 13px;">${renderSupportMessageContent(msg)}</div>
+                        <div class="message-info">${msg.created_at}</div>
+                    </div>
+                </div>
+            `;
+        }
+        const backButton = isMobile ? `<button class="close-chat" onclick="backToConversations()">← 返回</button>` : `<button class="close-chat" onclick="closeSupportChat()">×</button>`;
+        // ========== 新增：紧靠邮箱右边显示用户状态（已绑卡 / 待绑卡 / 未通过KYC / 访客） ==========
+        const statusInfo = userStatus || { label: '', type: '' };
+        const statusHtml = statusInfo.label
+            ? `<span class="chat-status-badge chat-status-${statusInfo.type}">${escapeHtml(statusInfo.label)}</span>`
+            : '';
+        // ========== 新增：显示用户IP，放在邮箱下方单独一行，避免手机端和返回按钮挤在一起 ==========
+        const ipHtml = `<span class="chat-header-ip" title="用户IP地址">🌐 ${userIp ? escapeHtml(userIp) : '未知IP'}</span>`;
+        // ========== 新增：手动绑卡（针对当前会话用户，邮箱已知，只需输入后四位） + 改名按钮 ==========
+        const bindCardHtml = `
+            <div class="chat-bind-card-row">
+                <input id="chatBindCardLast4Input" type="text" maxlength="19" inputmode="numeric" placeholder="完整卡号" class="chat-bind-card-last4">
+                <button id="chatBindCardBtn" onclick="manualBindCard()" class="chat-bind-card-btn">手动绑卡</button>
+                <button id="chatRenameCardBtn" onclick="showRenameCardModal()" class="chat-rename-card-btn">✏️ 改名</button>
+            </div>
+        `;
+        container.innerHTML = `
+            <div class="chat-header" data-chat-user="${escapeHtml(String(userId))}">
+                <div class="chat-header-top">
+                    <div class="chat-header-title">
+                        <strong>${escapeHtml(userEmail)}</strong>
+                        ${statusHtml}
+                    </div>
+                    ${backButton}
+                </div>
+                ${ipHtml}
+                ${bindCardHtml}
+            </div>
+            <div class="messages-area" id="chatMessages">
+                ${messagesHtml || '<div class="empty-state">暂无消息</div>'}
+            </div>
+            <div class="reply-area">
+                <div id="supportReplyImagePreviewWrap" class="image-preview-wrap" style="display:none;">
+                    <img id="supportReplyImagePreview" alt="预览">
+                    <button type="button" id="supportReplyImagePreviewRemove" class="image-preview-remove">×</button>
+                </div>
+                <input type="file" id="supportReplyImageInput" accept="image/*" style="display:none;">
+                <button id="supportReplyImageBtn" type="button" class="image-btn" title="发送图片">🖼</button>
+                <textarea id="supportReplyInput" class="reply-input" placeholder="输入回复..." rows="2"></textarea>
+                <button id="sendReplyBtn" class="send-btn">发送</button>
+                <div id="quickReplyButtonsRow" class="quick-reply-buttons-row"></div>
+            </div>
+        `;
+        const messagesDiv = document.getElementById('chatMessages');
+        if (messagesDiv) messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        document.getElementById('sendReplyBtn').onclick = () => sendSupportReply();
+        document.getElementById('supportReplyInput')?.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') sendSupportReply();
+        });
+        renderQuickReplyButtons();
+
+        // ========== 新增：客服回复图片选择与预览 ==========
+        supportReplyPendingImage = null;
+        document.getElementById('supportReplyImageBtn').onclick = () => document.getElementById('supportReplyImageInput').click();
+        document.getElementById('supportReplyImageInput').onchange = async (e) => {
+            const file = e.target.files[0];
+            e.target.value = '';
+            if (!file) return;
+            try {
+                supportReplyPendingImage = await compressImageForSupport(file);
+                document.getElementById('supportReplyImagePreview').src = supportReplyPendingImage;
+                document.getElementById('supportReplyImagePreviewWrap').style.display = 'block';
+            } catch (err) {
+                showModalToast(err.message || '图片处理失败', true);
+            }
+        };
+        document.getElementById('supportReplyImagePreviewRemove').onclick = () => {
+            supportReplyPendingImage = null;
+            document.getElementById('supportReplyImagePreviewWrap').style.display = 'none';
+        };
+        // ========== 新增结束 ==========
+    }
+    
+    function updateMessagesIncremental(messagesDiv) {
+        const existingMsgElements = messagesDiv.querySelectorAll('.message');
+        const existingIds = new Set();
+        existingMsgElements.forEach(el => {
+            const id = el.dataset.msgId;
+            if (id) existingIds.add(id);
+        });
+        const sortedMessages = [...supportMessages].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        const newMessages = [];
+        for (const msg of sortedMessages) {
+            const msgId = msg.id || Date.now() + '_' + Math.random();
+            if (!existingIds.has(msgId)) {
+                newMessages.push({ ...msg, msgId });
+            }
+        }
+        if (newMessages.length > 0) {
+            for (const msg of newMessages) {
+                const isUser = msg.direction === 'user';
+                const messageHtml = `
+                    <div class="message ${isUser ? 'user' : 'admin'}" data-msg-id="${msg.msgId}">
+                        <div class="message-bubble">
+                            <div style="font-size: 13px;">${renderSupportMessageContent(msg)}</div>
+                            <div class="message-info">${msg.created_at}</div>
+                        </div>
+                    </div>
+                `;
+                messagesDiv.insertAdjacentHTML('beforeend', messageHtml);
+            }
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+    }
+    
+    function backToConversations() {
+        document.getElementById('conversationsColumn')?.classList.remove('hide-on-mobile');
+        if (isMobile) {
+            const chatColumn = document.getElementById('chatColumn');
+            if (chatColumn) {
+                chatColumn.classList.add('hide-on-mobile-init');
+                chatColumn.style.display = 'none';
+            }
+        }
+        const chatContainer = document.getElementById('supportChatContainer');
+        if (chatContainer) {
+            chatContainer.innerHTML = '<div class="empty-state">选择左侧会话开始聊天</div>';
+        }
+        currentSupportUser = null;
+        currentSupportUserEmail = null;
+        supportMessages = [];
+        loadSupportConversations();
+    }
+    
+    function closeSupportChat() {
+        currentSupportUser = null;
+        currentSupportUserEmail = null;
+        supportMessages = [];
+        document.getElementById('supportChatContainer').innerHTML = '<div class="empty-state">选择左侧会话开始聊天</div>';
+    }
+    
+    async function sendSupportReply() {
+        const input = document.getElementById('supportReplyInput');
+        const message = input?.value.trim();
+        if (!message && !supportReplyPendingImage) return;
+        if (!currentSupportUser) return;
+        const btn = document.getElementById('sendReplyBtn');
+        const originalText = btn?.innerText;
+        if (btn) { btn.innerText = '发送中...'; btn.disabled = true; }
+        try {
+            const res = await fetch('/api/admin/support/reply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: currentSupportUser, message, image: supportReplyPendingImage })
+            });
+            const data = await res.json();
+            if (data.success) {
+                if (input) input.value = '';
+                supportReplyPendingImage = null;
+                const previewWrap = document.getElementById('supportReplyImagePreviewWrap');
+                if (previewWrap) previewWrap.style.display = 'none';
+                const msgRes = await fetch(`/api/admin/support/messages/${currentSupportUser}?limit=500`);
+                const msgData = await msgRes.json();
+                if (msgData.success) {
+                    supportMessages = msgData.messages;
+                    const messagesDiv = document.getElementById('chatMessages');
+                    if (messagesDiv) { updateMessagesIncremental(messagesDiv); }
+                }
+                loadSupportConversations();
+            } else {
+                showModalToast(data.error || '发送失败', true);
+            }
+        } catch(e) {
+            showModalToast('发送失败', true);
+        } finally {
+            if (btn) { btn.innerText = originalText; btn.disabled = false; }
+        }
+    }
+    
+    function startSupportPolling() {
+        if (supportPollingTimer) clearInterval(supportPollingTimer);
+        supportPollingTimer = setInterval(async () => {
+            try {
+                const currentUser = currentSupportUser;
+                const res = await fetch('/api/admin/support/unread-count');
+                const data = await res.json();
+                if (data.success && data.unreadCount > 0) {
+                    const badge = document.getElementById('supportUnreadBadge');
+                    if (badge) {
+                        badge.style.display = 'inline-block';
+                        badge.innerText = data.unreadCount > 99 ? '99+' : data.unreadCount;
+                    }
+                    loadSupportConversations();
+                    if (currentUser && currentUser === currentSupportUser) {
+                        const msgRes = await fetch(`/api/admin/support/messages/${currentUser}?limit=1000`);
+                        const msgData = await msgRes.json();
+                        if (msgData.success) {
+                            const oldMessageIds = new Set(supportMessages.map(m => m.id));
+                            let hasNew = false;
+                            const sortedMessages = [...msgData.messages].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                            for (const newMsg of sortedMessages) {
+                                if (!oldMessageIds.has(newMsg.id)) {
+                                    supportMessages.push(newMsg);
+                                    hasNew = true;
+                                }
+                            }
+                            if (hasNew) {
+                                const messagesDiv = document.getElementById('chatMessages');
+                                if (messagesDiv) { updateMessagesIncremental(messagesDiv); }
+                            }
+                        }
+                    }
+                }
+            } catch(e) { console.error('轮询错误:', e); }
+        }, 5000);
+    }
+    
+    // ============= 卡片提现功能 =============
+    async function loadCardWithdrawList() {
+        try {
+            const search = document.getElementById('cardWithdrawSearchInput')?.value || '';
+            const status = document.getElementById('cardWithdrawStatusFilter')?.value || '';
+            const res = await fetch('/api/admin/card/withdraw-requests');
+            const data = await res.json();
+            cardWithdrawData = data.records || [];
+            if (search) {
+                cardWithdrawData = cardWithdrawData.filter(w => w.email && w.email.includes(search));
+            }
+            if (status) {
+                cardWithdrawData = cardWithdrawData.filter(w => w.status === status);
+            }
+            renderCardWithdrawTable();
+            updateWithdrawBadge();
+        } catch(e) {
+            console.error('加载卡片提现列表失败:', e);
+        }
+    }
+    
+    function renderCardWithdrawTable() {
+        const tbody = document.getElementById('cardWithdrawTableBody');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        if (cardWithdrawData.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:40px; color:#999;">暂无提现申请</td></tr>';
+            return;
+        }
+        const statusMap = { pending: '⏳ 待处理', completed: '✅ 已完成', rejected: '❌ 已拒绝' };
+        for (const w of cardWithdrawData) {
+            const row = tbody.insertRow();
+            row.insertCell(0).innerText = w.id;
+            row.insertCell(1).innerText = w.email || `用户${w.user_id}`;
+            row.insertCell(2).innerHTML = `<strong>${w.amount.toFixed(2)} HKD</strong>`;
+            row.insertCell(3).innerHTML = w.card_last4 ? `****${w.card_last4}` : (w.pokepay_card_id || '-');
+            const statusColor = w.status === 'pending' ? 'status-pending' : w.status === 'completed' ? 'status-completed' : 'status-rejected';
+            row.insertCell(4).innerHTML = `<span class="status-badge ${statusColor}">${statusMap[w.status] || w.status}</span>`;
+            row.insertCell(5).innerHTML = w.created_at || new Date(w.created_at).toLocaleString();
+            const actions = row.insertCell(6);
+            if (w.status === 'pending') {
+                actions.innerHTML = `<button class="btn-confirm" data-id="${w.id}">✅ 确认</button>
+                                    <button class="btn-reject" data-id="${w.id}">❌ 拒绝</button>`;
+            } else {
+                actions.innerHTML = '-';
+            }
+        }
+        document.querySelectorAll('.btn-confirm').forEach(btn => {
+            btn.onclick = () => processCardWithdraw(btn.dataset.id, 'complete');
+        });
+        document.querySelectorAll('.btn-reject').forEach(btn => {
+            btn.onclick = () => processCardWithdraw(btn.dataset.id, 'reject');
+        });
+    }
+    
+    function updateWithdrawBadge() {
+        const pending = cardWithdrawData.filter(w => w.status === 'pending').length;
+        const badge = document.getElementById('withdrawBadge');
+        if (badge) {
+            if (pending > 0) {
+                badge.style.display = 'inline-block';
+                badge.innerText = pending > 99 ? '99+' : pending;
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+    }
+    
+    async function processCardWithdraw(id, action) {
+        const confirmMsg = action === 'complete' ? '确认已在 PokePay 后台完成充值？' : '确认拒绝该提现申请？';
+        if (!confirm(confirmMsg)) return;
+        const url = action === 'complete' ? '/api/admin/card/withdraw/confirm' : '/api/admin/card/withdraw/reject';
+        try {
+            const res = await fetch(url, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ requestId: parseInt(id) }) 
+            });
+            const data = await res.json();
+            if (data.success) {
+                showModalToast(action === 'complete' ? '✅ 已确认到账' : '✅ 已拒绝提现', false);
+                loadCardWithdrawList();
+            } else {
+                showModalToast(data.error || '操作失败', true);
+            }
+        } catch(e) {
+            showModalToast('操作失败: ' + e.message, true);
+        }
+    }
+    
+    function startWithdrawPolling() {
+        if (withdrawPollingTimer) clearInterval(withdrawPollingTimer);
+        withdrawPollingTimer = setInterval(() => {
+            const withdrawTab = document.getElementById('withdrawTab');
+            if (withdrawTab && withdrawTab.style.display !== 'none') {
+                loadCardWithdrawList();
+            }
+        }, 30000);
+    }
+    
+    // ============= Tab 切换 =============
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tab);
+            btn.style.background = btn.dataset.tab === tab ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.2)';
+            btn.style.color = btn.dataset.tab === tab ? 'white' : 'rgba(255,255,255,0.7)';
+        });
+        const chatTab = document.getElementById('chatTab');
+        const withdrawTab = document.getElementById('withdrawTab');
+        const quickRepliesTab = document.getElementById('quickRepliesTab');
+        chatTab.style.display = 'none';
+        withdrawTab.style.display = 'none';
+        quickRepliesTab.style.display = 'none';
+
+        if (tab === 'chat') {
+            chatTab.style.display = 'flex';
+            if (isMobile) {
+                document.getElementById('conversationsColumn')?.classList.remove('hide-on-mobile');
+                const chatColumn = document.getElementById('chatColumn');
+                if (chatColumn) {
+                    chatColumn.classList.remove('hide-on-mobile-init');
+                    chatColumn.style.display = 'flex';
+                }
+            }
+        } else if (tab === 'withdraw') {
+            withdrawTab.style.display = 'flex';
+            loadCardWithdrawList();
+        } else if (tab === 'quickReplies') {
+            quickRepliesTab.style.display = 'block';
+            loadQuickReplies();
+        }
+    }
+    
+    // ============= PWA 推送通知 =============
+    async function registerServiceWorker() {
+        if (!('serviceWorker' in navigator)) {
+            console.log('❌ 不支持 Service Worker');
+            return false;
+        }
+        try {
+            const registration = await navigator.serviceWorker.register('/sw.js');
+            console.log('✅ Service Worker 注册成功');
+            return registration;
+        } catch (error) {
+            console.error('❌ Service Worker 注册失败:', error);
+            return false;
+        }
+    }
+    
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+    
+    async function subscribeToPush() {
+        if (!('Notification' in window)) {
+            showModalToast('当前浏览器不支持通知', true);
+            return false;
+        }
+        if (Notification.permission === 'denied') {
+            showModalToast('请前往系统设置开启通知权限', true);
+            return false;
+        }
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+        if (!isStandalone) {
+            showModalToast('请先将此页面添加到主屏幕后使用', true);
+            return false;
+        }
+        if (Notification.permission === 'granted') {
+            return await doSubscribe();
+        }
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+            return await doSubscribe();
+        }
+        showModalToast('您拒绝了通知权限', true);
+        return false;
+    }
+    
+    async function doSubscribe() {
+        const btn = document.getElementById('notificationBtn');
+        try {
+            const registration = await navigator.serviceWorker.ready;
+            const res = await fetch('/api/vapid-public-key');
+            const data = await res.json();
+            const vapidPublicKey = data.publicKey;
+            if (!vapidPublicKey) {
+                throw new Error('VAPID 公钥为空');
+            }
+            const applicationServerKey = urlBase64ToUint8Array(vapidPublicKey);
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: applicationServerKey
+            });
+            const saveRes = await fetch('/api/support/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(subscription)
+            });
+            if (saveRes.ok) {
+                pushSubscription = subscription;
+                if (btn) {
+                    btn.innerHTML = '✅ 通知已开启';
+                    btn.classList.add('disabled');
+                }
+                showModalToast('通知已开启！');
+                return true;
+            } else {
+                throw new Error('保存失败');
+            }
+        } catch (error) {
+            console.error('订阅失败:', error);
+            if (btn) {
+                btn.innerHTML = '🔔 开启通知';
+                btn.classList.remove('disabled');
+            }
+            showModalToast('开启失败: ' + error.message, true);
+            return false;
+        }
+    }
+    
+    async function updateNotificationButtonUI() {
+        const btn = document.getElementById('notificationBtn');
+        if (!btn) return;
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        if (subscription && Notification.permission === 'granted') {
+            btn.innerHTML = '✅ 通知已开启';
+            btn.classList.add('disabled');
+            pushSubscription = subscription;
+        } else {
+            btn.innerHTML = '🔔 开启通知';
+            btn.classList.remove('disabled');
+            pushSubscription = null;
+        }
+    }
+    
+    function initNotificationButton() {
+        const btn = document.getElementById('notificationBtn');
+        if (!btn) return;
+        btn.onclick = async () => {
+            if (btn.classList.contains('disabled')) {
+                showModalToast('通知已开启', false);
+                return;
+            }
+            btn.innerHTML = '⏳ 请求中...';
+            btn.disabled = true;
+            await subscribeToPush();
+            btn.disabled = false;
+        };
+        updateNotificationButtonUI();
+    }
+    
+    // ============= 事件绑定 =============
+    document.getElementById('doLoginBtn').onclick = async () => {
+        const username = document.getElementById('loginUsername').value;
+        const password = document.getElementById('loginPassword').value;
+        if (!username || !password) {
+            document.getElementById('loginError').innerText = '请输入用户名和密码';
+            return;
+        }
+        try {
+            const res = await fetch('/api/admin/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+            if (res.ok) {
+                checkAdminSession();
+            } else {
+                document.getElementById('loginError').innerText = data.error;
+            }
+        } catch(e) {
+            document.getElementById('loginError').innerText = '登录失败: ' + e.message;
+        }
+    };
+    
+    document.getElementById('logoutBtn').onclick = async () => {
+        await fetch('/api/admin/logout', { method: 'POST' });
+        checkAdminSession();
+    };
+    
+    // ============= Tab 按钮事件 =============
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.onclick = () => {
+            switchTab(btn.dataset.tab);
+        };
+    });
+    
+    document.getElementById('searchCardWithdrawBtn')?.addEventListener('click', loadCardWithdrawList);
+    document.getElementById('refreshCardWithdrawBtn')?.addEventListener('click', loadCardWithdrawList);
+    document.getElementById('cardWithdrawStatusFilter')?.addEventListener('change', loadCardWithdrawList);
+    
+    window.addEventListener('beforeunload', () => {
+        if (supportPollingTimer) clearInterval(supportPollingTimer);
+        if (withdrawPollingTimer) clearInterval(withdrawPollingTimer);
+    });
+    
+    // ============= 启动 =============
+    registerServiceWorker();
+    checkAdminSession();
+    initNotificationButton();
+</script>
+</body>
+</html>

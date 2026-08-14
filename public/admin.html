@@ -1,0 +1,2093 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>TRON 会员系统 - 管理后台</title>
+    <link rel="icon" type="image/png" href="/favicon.png">  <!-- 添加这一行 -->
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; min-height: 100vh; font-size: 14px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .header h1 { font-size: 18px; }
+        .header .user-info { display: flex; align-items: center; gap: 12px; }
+        .logout-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        .logout-btn:hover { background: rgba(255,255,255,0.3); }
+        .nav-tabs { background: white; padding: 0 12px; display: flex; gap: 4px; border-bottom: 1px solid #e0e0e0; flex-wrap: wrap; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .nav-tab { padding: 10px 14px; cursor: pointer; border: none; background: none; font-size: 13px; transition: all 0.3s; white-space: nowrap; }
+        .nav-tab:hover { color: #667eea; }
+        .nav-tab.active { color: #667eea; border-bottom: 2px solid #667eea; }
+        .container { padding: 16px; max-width: 1400px; margin: 0 auto; }
+        .card { background: white; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .stat-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px; border-radius: 12px; text-align: center; }
+        .stat-card .number { font-size: 24px; font-weight: bold; }
+        .stat-card .label { font-size: 12px; opacity: 0.9; margin-top: 6px; }
+        .search-bar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+        .search-bar input, .search-bar select { padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; flex: 1; min-width: 150px; }
+        .search-bar button { padding: 10px 16px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; }
+        .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -16px; padding: 0 16px; }
+        table { width: 100%; border-collapse: collapse; min-width: 1300px; }
+        th, td { padding: 10px 8px; text-align: left; border-bottom: 1px solid #e0e0e0; font-size: 12px; }
+        th { background: #f8f9fa; font-weight: 600; }
+        .btn-sm { padding: 4px 8px; font-size: 11px; border: none; border-radius: 6px; cursor: pointer; margin: 2px; white-space: nowrap; }
+        .btn-green { background: #48bb78; color: white; }
+        .btn-green:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-orange { background: #ed8936; color: white; }
+        .btn-blue { background: #4299e1; color: white; }
+        .btn-purple { background: #8b5cf6; color: white; }
+        .copy-btn { background: #e2e8f0; color: #333; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 10px; margin-left: 4px; }
+        .hidden { display: none !important; }
+        .pagination { display: flex; justify-content: center; gap: 6px; margin-top: 16px; flex-wrap: wrap; }
+        .pagination button { padding: 5px 10px; border: 1px solid #ddd; background: white; cursor: pointer; border-radius: 6px; font-size: 12px; }
+        .pagination button.active { background: #667eea; color: white; border-color: #667eea; }
+        .modal-toast { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #333; color: white; padding: 16px 24px; border-radius: 12px; z-index: 2000; text-align: center; min-width: 200px; max-width: 80%; box-shadow: 0 4px 20px rgba(0,0,0,0.3); animation: fadeInOut 2s ease-in-out forwards; }
+        .modal-toast.error { background: #e53e3e; }
+        .modal-toast.success { background: #48bb78; }
+        @keyframes fadeInOut { 0% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 85% { opacity: 1; transform: translate(-50%, -50%) scale(1); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); visibility: hidden; } }
+        .info-row { background: #f0f4ff; padding: 12px; border-radius: 8px; margin-top: 12px; font-size: 13px; word-break: break-all; }
+        .collect-stats { background: #f0f4ff; padding: 16px; border-radius: 12px; margin: 16px 0; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; margin-bottom: 6px; font-weight: 500; }
+        .form-group input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+        button.full-width { width: 100%; padding: 12px; font-size: 14px; }
+        .result-box { margin-top: 16px; padding: 12px; border-radius: 8px; }
+        .result-box.success { background: #e8f8e8; color: #2e7d32; }
+        .result-box.error { background: #fee; color: #c62828; }
+        .status-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500; }
+        .status-pending { background: #fef3c7; color: #d97706; }
+        .status-completed { background: #e8f8e8; color: #2e7d32; }
+        .status-rejected { background: #fee; color: #c62828; }
+        .tronzap-card { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: white; margin-bottom: 16px; }
+        .tronzap-card .balance-number { font-size: 28px; font-weight: bold; }
+        .tronzap-card .warning { color: #f97316; }
+        .tronzap-card .danger { color: #ef4444; }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+        .modal .modal-content {
+            max-width: 450px;
+            width: 90%;
+            background: white;
+            border-radius: 24px;
+            padding: 24px;
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: #666; }
+        
+        @media (max-width: 768px) { .container { padding: 12px; } .card { padding: 12px; } th, td { padding: 8px 4px; font-size: 11px; } .btn-sm { padding: 3px 6px; font-size: 10px; } .nav-tab { padding: 8px 10px; font-size: 12px; } .stat-card .number { font-size: 18px; } }
+        /* 分页按钮样式 */
+.page-btn {
+    padding: 6px 12px;
+    border: 1px solid #ddd;
+    background: white;
+    cursor: pointer;
+    border-radius: 6px;
+    font-size: 13px;
+    transition: all 0.3s;
+}
+
+.page-btn:hover {
+    background: #f0f0f0;
+    border-color: #667eea;
+}
+
+.page-btn.active {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+    cursor: default;
+}
+    </style>
+</head>
+<body>
+    <div id="loginPage">
+        <div class="header" style="justify-content: center;">
+            <h1>🔐 管理后台登录</h1>
+        </div>
+        <div class="container" style="max-width: 400px;">
+            <div class="card">
+                <h3>管理员登录</h3>
+                <input type="text" id="loginUsername" placeholder="用户名" style="width:100%; margin:10px 0; padding:12px;">
+                <input type="password" id="loginPassword" placeholder="密码" style="width:100%; margin:10px 0; padding:12px;">
+                <button id="doLoginBtn" style="width:100%; background:#667eea; color:white; padding:12px; border:none; border-radius:8px;">登录</button>
+                <div id="loginError" style="color:#e53e3e; margin-top:10px; text-align:center;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="dashboardPage" class="hidden">
+        <div class="header">
+            <h1>🔐 TRON 会员系统 - 管理后台</h1>
+            <div class="user-info">
+                <span id="adminUsername">admin</span>
+                <button class="logout-btn" id="logoutBtn">退出</button>
+            </div>
+        </div>
+        <div class="nav-tabs">
+            <button class="nav-tab active" data-tab="users">👥 用户列表</button>
+            <button class="nav-tab" data-tab="support">💬 客服</button>
+            <button class="nav-tab" data-tab="abnormal">⚠️ 异常订单</button>
+      <!--  <button class="nav-tab" data-tab="collect-all">💰 一键归集</button>-->
+            <button class="nav-tab" data-tab="card-withdraw">💳 卡片提现</button>
+            <button class="nav-tab" data-tab="rate-settings">📊 汇率设置</button>
+            <button class="nav-tab" data-tab="tronzap">⚡ 能量租赁</button>
+            <button class="nav-tab" data-tab="admin-settings">⚙️ 管理员设置</button>
+            <button class="nav-tab" data-tab="announcement">📢 通告</button>
+            <button class="nav-tab" data-tab="password">🔑 修改密码</button>
+        </div>
+        <div class="container">
+            <!-- 用户列表 -->
+            <div id="usersTab">
+                <div class="card">
+                    <div class="stats-grid" id="statsGrid"></div>
+                    <div class="search-bar">
+                        <input type="text" id="searchInput" placeholder="搜索邮箱...">
+                        <select id="inviteFilter">
+                            <option value="">全部邀请码</option>
+                            <option value="has">已有邀请码</option>
+                            <option value="none">未生成</option>
+                        </select>
+                        <select id="walletFilter">
+                            <option value="">全部钱包</option>
+                            <option value="has">已有钱包</option>
+                            <option value="none">未创建</option>
+                        </select>
+                        <!-- ========== 新增：KYC 状态筛选 ========== -->
+                        <select id="kycFilter">
+                            <option value="">全部KYC状态</option>
+                            <option value="pending">⏳ 待认证</option>
+                            <option value="verified">✅ 已认证</option>
+                            <option value="rejected">❌ 已拒绝</option>
+                            <option value="none">未提交</option>
+                            <option value="needs_review">⚠️ 绑卡异常待审核</option>
+                        </select>
+                        <!-- ========== 新增结束 ========== -->
+                        <!-- ========== 新增：绑卡状态筛选 ========== -->
+                        <select id="cardBindFilter">
+                            <option value="">全部绑卡状态</option>
+                            <option value="bound">💳 已绑卡</option>
+                            <option value="unbound">未绑卡</option>
+                        </select>
+                        <!-- ========== 新增结束 ========== -->
+                        <!-- ========== 新增：按卡片ID顺序号排序 ========== -->
+                        <select id="cardIdSortFilter">
+                            <option value="">默认排序（按注册时间）</option>
+                            <option value="asc">卡片ID ↑ 从小到大</option>
+                            <option value="desc">卡片ID ↓ 从大到小</option>
+                        </select>
+                        <!-- ========== 新增结束 ========== -->
+                        <button id="searchBtn">搜索</button>
+                        <button id="refreshBtn">刷新</button>
+                        <!-- ========== 新增：同步 KYC 按钮 ========== -->
+                        <button id="syncKYCBtn" style="background: #8b5cf6; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer;">
+                            🔄 同步KYC
+                        </button>
+                        <!-- ========== 新增结束 ========== -->
+                        <!-- ========== 新增：批量充值 vHKD 按钮 ========== -->
+                        <button id="batchAddVHKDBtn" onclick="batchAddVHKD()" style="background: #f59e0b; color: white; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer;">
+                            💰 批量充值vHKD（<span id="selectedCount">0</span>）
+                        </button>
+                        <!-- ========== 新增结束 ========== -->
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="userTable">
+                            <thead>
+                                <tr><th><input type="checkbox" id="selectAllCheckbox" onclick="toggleSelectAll(this)"></th><th>ID</th><th>邮箱</th><th>注册时间</th><th>TRON地址</th><th>私钥</th><th>TRX</th><th>链上USDT</th><th>vUSDT</th><th>港币</th><th>KYC状态</th><th>卡片ID</th><th>邀请码</th><th>奖励金</th><th>操作</th></tr>
+                            </thead>
+                            <tbody id="userTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="pagination"></div>
+                </div>
+            </div>
+            
+            <!-- 客服面板 -->
+            <div id="supportTab" class="hidden">
+                <div class="card">
+                    <h3>💬 客服会话 <span id="supportUnreadBadge" style="display: none; background: #e53e3e; color: white; border-radius: 999px; padding: 2px 8px; font-size: 11px; margin-left: 8px;"></span></h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 16px; min-height: 500px;">
+                        <div id="supportConversationsList" style="border-right: 1px solid #e0e0e0; overflow-y: auto;">
+                            <div style="text-align: center; padding: 40px; color: #999;">加载中...</div>
+                        </div>
+                        <div id="supportChatContainer" style="display: flex; flex-direction: column;">
+                            <div style="text-align: center; padding: 40px; color: #999;">选择左侧会话开始聊天</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 异常订单 -->
+            <div id="abnormalTab" class="hidden">
+                <div class="card">
+                    <h3>⚠️ 异常订单管理</h3>
+                    <div class="search-bar">
+                        <select id="abnormalStatusFilter">
+                            <option value="pending">⏳ 待处理</option>
+                            <option value="resolved">✅ 已解决</option>
+                            <option value="all">📋 全部</option>
+                        </select>
+                        <input type="text" id="abnormalSearchInput" placeholder="搜索用户邮箱或ID">
+                        <select id="abnormalDaysFilter">
+                            <option value="0">📅 全部时间</option>
+                            <option value="7">📅 最近7天</option>
+                            <option value="30">📅 最近30天</option>
+                        </select>
+                        <button id="searchAbnormalBtn">🔍 搜索</button>
+                        <button id="refreshAbnormalBtn">🔄 刷新</button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="abnormalTable" style="min-width: 900px;">
+                            <thead>
+                                <tr><th>ID</th><th>用户</th><th>提币金额</th><th>应收手续费</th><th>目标地址</th><th>错误信息</th><th>状态</th><th>发生时间</th><th>操作</th></tr>
+                            </thead>
+                            <tbody id="abnormalTableBody"><tr><td colspan="9" style="text-align:center;">加载中...</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="abnormalPagination"></div>
+                </div>
+            </div>
+
+            <!-- 一键归集 -->
+            <div id="collectAllTab" class="hidden">
+                <div class="card">
+                    <h3>💰 一键归集所有用户资金</h3>
+                    <div class="form-group">
+                        <label>📌 归集目标地址</label>
+                        <input type="text" id="collectAddress" placeholder="请输入归集钱包地址">
+                        <div id="currentCollectAddress" class="info-row"></div>
+                        <button id="saveCollectAddressBtn" class="btn-blue" style="margin-top:12px; padding:10px;">保存设置</button>
+                    </div>
+                    <div id="collectStats" class="collect-stats"></div>
+                    <div class="form-group">
+                        <label>🔐 管理员密码</label>
+                        <input type="password" id="adminPassword" placeholder="请输入管理员密码">
+                    </div>
+                    <button id="doCollectAllBtn" class="full-width" style="background:#ed8936; color:white; padding:12px; border:none; border-radius:8px;">执行归集</button>
+                    <div id="collectResult" class="result-box hidden"></div>
+                </div>
+            </div>
+
+            <!-- 卡片提现审核 -->
+            <div id="cardWithdrawTab" class="hidden">
+                <div class="card">
+                    <h3>💳 PokePay 卡片提现审核</h3>
+                    <div class="search-bar">
+                        <input type="text" id="cardWithdrawSearchInput" placeholder="搜索用户邮箱...">
+                        <select id="cardWithdrawStatusFilter">
+                            <option value="">全部状态</option>
+                            <option value="pending">⏳ 待处理</option>
+                            <option value="completed">✅ 已完成</option>
+                            <option value="rejected">❌ 已拒绝</option>
+                        </select>
+                        <button id="searchCardWithdrawBtn">搜索</button>
+                        <button id="refreshCardWithdrawBtn">刷新</button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="cardWithdrawTable">
+                            <thead>
+                                <tr><th>ID</th><th>用户</th><th>金额(HKD)</th><th>卡片号</th><th>状态</th><th>申请时间</th><th>操作</th></tr>
+                            </thead>
+                            <tbody id="cardWithdrawTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 汇率设置 -->
+            <div id="rateSettingsTab" class="hidden">
+                <div class="card">
+                    <h3>📊 汇率设置</h3>
+                    <div class="form-group">
+                        <label>备用汇率 (当API失效时使用)</label>
+                        <input type="number" id="backupRate" step="0.0001" placeholder="例如: 7.8">
+                        <div id="currentRateInfo" class="info-row" style="margin-top: 8px;"></div>
+                        <button id="saveRateBtn" class="btn-blue" style="margin-top:12px; padding:10px;">保存设置</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 能量租赁 -->
+            <div id="tronzapTab" class="hidden">
+                <div class="card tronzap-card">
+                    <h3>⚡ Tron 能量账户</h3>
+                    <div style="margin: 16px 0;">
+                        <div>💰 当前余额</div>
+                        <div class="balance-number" id="tronzapBalance">---</div>
+                        <div id="tronzapBalanceStatus" style="margin-top: 8px;"></div>
+                    </div>
+                    <div class="info-row" style="background: rgba(255,255,255,0.1);">
+                        <div>📌 充值地址</div>
+                        <div style="font-family: monospace; word-break: break-all; margin: 8px 0;" id="rechargeAddress">加载中...</div>
+                        <button id="copyRechargeAddressBtn" class="btn-sm btn-blue" style="margin-top: 8px;">复制地址</button>
+                    </div>
+                    <div class="info-row" style="background: rgba(255,255,255,0.1); margin-top: 12px;">
+                        <div>💡 使用说明</div>
+                        <div style="font-size: 12px; margin-top: 8px;">
+                            1. 向上述充值地址转入 TRX<br>
+                            2. 系统会自动识别并增加余额<br>
+                            3. 用户提币/兑换时自动扣除能量费用<br>
+                            4. 建议保持余额 ≥ 50 TRX
+                        </div>
+                    </div>
+                    <button id="refreshTronzapBtn" class="btn-blue" style="margin-top: 16px;">刷新余额</button>
+                </div>
+                <div class="card">
+                    <h3>📊 归集任务记录</h3>
+                    <div class="table-wrapper">
+                        <table id="collectTasksTable">
+                            <thead>
+                                <tr><th>任务ID</th><th>状态</th><th>总用户</th><th>已处理</th><th>成功</th><th>失败</th><th>开始时间</th><th>完成时间</th></tr>
+                            </thead>
+                            <tbody id="collectTasksBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 管理员设置 -->
+            <div id="adminSettingsTab" class="hidden">
+                <div class="card">
+                    <h3>⚙️ 管理员设置</h3>
+                    <div class="info-row"><strong>当前网络：</strong> <span id="networkInfo">加载中...</span></div>
+                    <hr style="margin: 16px 0;">
+                    <h4>➕ 创建新用户</h4>
+                    <div class="form-group"><input type="email" id="newUserEmail" placeholder="用户邮箱"></div>
+                    <div class="form-group"><input type="password" id="newUserPassword" placeholder="初始密码"></div>
+                    <button id="createUserBtn" class="btn-blue">创建用户</button>
+                    <div id="createUserResult" class="result-box hidden" style="margin-top:12px;"></div>
+                </div>
+            </div>
+
+            <!-- 修改密码 -->
+            <div id="passwordTab" class="hidden">
+                <div class="card">
+                    <h3>🔑 修改管理员密码</h3>
+                    <div class="form-group"><input type="password" id="oldPassword" placeholder="原密码"></div>
+                    <div class="form-group"><input type="password" id="newPassword" placeholder="新密码（至少6位）"></div>
+                    <div class="form-group"><input type="password" id="confirmPassword" placeholder="确认新密码"></div>
+                    <button id="changePasswordBtn" class="full-width" style="background:#667eea; color:white; padding:12px; border:none; border-radius:8px;">修改密码</button>
+                    <div id="passwordResult" class="result-box hidden"></div>
+                </div>
+            </div>
+            <!-- 通告管理 -->
+<div id="announcementTab" class="hidden">
+  <div class="card">
+    <h3>📢 系统通告</h3>
+    <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 16px;">
+      发布通告后，所有用户在登录时会看到弹窗通知。用户关闭后当天不再显示。
+    </p>
+    
+    <div class="form-group">
+      <label>通告内容</label>
+      <textarea id="announcementContent" rows="6" style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; font-size:14px; resize:vertical; font-family: inherit;" placeholder="输入通告内容，支持换行&#10;留空并保存可删除当前通告"></textarea>
+    </div>
+    
+    <div id="announcementPreview" style="background:#f8f9fa; padding:16px; border-radius:8px; margin-bottom:16px; display:none;">
+      <div style="font-size:12px; color:#888; margin-bottom:8px;">📋 当前通告预览：</div>
+      <div id="announcementPreviewContent" style="white-space:pre-wrap; font-size:14px; line-height:1.8;"></div>
+      <div id="announcementPreviewTime" style="font-size:11px; color:#999; margin-top:8px;"></div>
+    </div>
+    
+    <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+      <button id="saveAnnouncementBtn" style="background:#667eea; color:white; padding:10px 24px; border:none; border-radius:8px; cursor:pointer; font-size:14px;">💾 保存通告</button>
+      <button id="deleteAnnouncementBtn" style="background:#e53e3e; color:white; padding:10px 24px; border:none; border-radius:8px; cursor:pointer; font-size:14px;">🗑️ 删除通告</button>
+    </div>
+    
+    <div id="announcementResult" class="result-box hidden" style="margin-top:16px;"></div>
+  </div>
+</div>
+        </div>
+    </div>
+
+    <!-- 转 vUSDT 弹窗 -->
+    <div id="transferVusdtModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>转账 vUSDT</h3>
+                <button class="modal-close" onclick="closeTransferModal()">×</button>
+            </div>
+            <div>
+                <div class="form-group"><label>用户ID: <span id="transferUserId"></span></label></div>
+                <div class="form-group"><label>用户邮箱: <span id="transferUserEmail"></span></label></div>
+                <div class="form-group"><label>转账金额 (vUSDT)</label><input type="number" id="transferAmount" placeholder="输入数量" step="1"></div>
+                <div class="form-group"><label>系统池余额: <span id="poolBalance">加载中...</span></label></div>
+                <button class="btn btn-primary" onclick="confirmTransfer()" style="width:100%;">确认转账</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 关联卡片弹窗 -->
+    <div id="associateCardModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>关联 PokePay 卡片</h3>
+                <button class="modal-close" onclick="closeAssociateCardModal()">×</button>
+            </div>
+            <div>
+                <div class="form-group"><label>用户ID: <span id="associateUserId"></span></label></div>
+                <div class="form-group"><label>用户邮箱: <span id="associateUserEmail"></span></label></div>
+                <div class="form-group"><label>PokePay 卡片 ID</label><input type="number" id="pokepayCardId" placeholder="请输入卡片ID (如: 2066)"></div>
+                <div id="cardPreviewInfo" class="info-row hidden" style="margin-top: 12px;"></div>
+                <button class="btn btn-secondary" id="previewCardBtn" style="margin-top: 8px; width:100%;">预览卡片信息</button>
+                <button class="btn btn-primary" id="confirmAssociateBtn" style="margin-top: 12px; width:100%;">确认关联</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 手续费配置弹窗 -->
+    <div id="feeConfigModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>⚙️ 设置用户手续费</h3>
+                <button class="modal-close" onclick="closeFeeConfigModal()">×</button>
+            </div>
+            <div>
+                <div class="form-group"><label>用户: <span id="feeConfigUserEmail"></span></label></div>
+                <div class="form-group">
+                    <label>手续费 (TRX)</label>
+                    <input type="number" id="fixedFeeInput" min="0" max="1000" value="8">
+                    <div style="font-size: 12px; color: #888;">提币时向用户收取的 TRX 数量</div>
+                </div>
+                <div class="form-group">
+                    <label>管理员密码</label>
+                    <input type="password" id="feeConfigAdminPassword" class="input-field" placeholder="请输入管理员密码">
+                </div>
+                <button class="btn btn-primary" onclick="saveUserFeeConfig()" style="width:100%;">保存设置</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============= 北京时间转换函数 =============
+        function toBeijingTime(dateStr) {
+            if (!dateStr) return '-';
+            // 如果已经是 YYYY-MM-DD HH:MM:SS 格式，直接返回，不再转换
+            if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dateStr)) {
+                return dateStr;
+            }
+            const date = new Date(dateStr);
+            date.setHours(date.getHours() + 8);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        }
+        let currentTab = 'users';
+        let currentPage = 1;
+        let pageSize = 5;
+        let totalUsers = 0;
+        let totalPages = 0;     // 新增这行
+        let usersData = [];
+        let selectedUserIds = new Set(); // ========== 新增：批量选中的用户ID ==========
+        let currentTransferUser = null;
+        let currentAssociateUser = null;
+
+        function showModalToast(msg, isError = false) {
+            const existing = document.querySelector('.modal-toast');
+            if (existing) existing.remove();
+            const toast = document.createElement('div');
+            toast.className = `modal-toast ${isError ? 'error' : 'success'}`;
+            toast.innerHTML = isError ? `❌ ${msg}` : `✅ ${msg}`;
+            document.body.appendChild(toast);
+            setTimeout(() => { if (toast && toast.parentNode) toast.remove(); }, 2500);
+        }
+
+        function copyToClipboard(text, label = '内容') {
+            navigator.clipboard.writeText(text).then(() => showModalToast(`${label}已复制`, false)).catch(() => showModalToast('复制失败', true));
+        }
+
+        // ============= KYC 审核功能 =============
+
+        function renderKYCActions(user) {
+            const reviewHint = user.card_bind_status === 'needs_review'
+                ? `<br><span style="color:#e53e3e; font-size:12px;">⚠️ 自动绑卡失败，后四位：${user.pending_card_last4 || '未知'}，需人工绑定</span>`
+                : '';
+
+            if (user.kyc_status === 'verified') {
+                return '<span class="status-badge status-completed" style="background:#e8f8e8;">✅ 已认证</span>' + reviewHint;
+            } else if (user.kyc_status === 'rejected') {
+                return '<span class="status-badge status-rejected">❌ 已拒绝</span>' + reviewHint;
+            } else {
+                return `
+                    <button class="btn-sm btn-green" onclick="updateKYCStatus('${user.uid}', 'verified')">✅ 通过KYC</button>
+                    <button class="btn-sm" style="background:#e53e3e; color:white;" onclick="updateKYCStatus('${user.uid}', 'rejected')">❌ 拒绝</button>
+                ` + reviewHint;
+            }
+        }
+
+        async function updateKYCStatus(userId, status) {
+            const statusText = status === 'verified' ? '通过' : '拒绝';
+            const confirmMsg = `确认${statusText}该用户的 KYC 认证吗？`;
+            
+            if (!confirm(confirmMsg)) return;
+            
+            try {
+                const res = await fetch('/api/admin/user/update-kyc', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId, kycStatus: status })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    showModalToast(`KYC 已${statusText}`, false);
+                    loadUsers();
+                    loadStats();
+                } else {
+                    showModalToast(data.error || '操作失败', true);
+                }
+            } catch(e) {
+                showModalToast('操作失败: ' + e.message, true);
+            }
+        }
+        
+        
+// ============= 管理员重置用户密码（登录密码 + 支付密码 = 888888） =============
+async function resetUserPassword(userId, email) {
+  const confirmMsg = `确认将用户 ${email} 的登录密码和支付密码都重置为 888888 吗？\n\n⚠️ 重置后用户将无法使用旧密码登录！`;
+  if (!confirm(confirmMsg)) return;
+  
+  try {
+    const res = await fetch('/api/admin/reset-user-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId })
+    });
+    const data = await res.json();
+    if (data.success) {
+      showModalToast(`✅ 用户 ${email} 的登录密码和支付密码已重置为 888888`, false);
+      loadUsers();
+    } else {
+      showModalToast(data.error || '重置失败', true);
+    }
+  } catch(e) {
+    showModalToast('重置失败: ' + e.message, true);
+  }
+}
+
+        // ============= 冻结/解冻钱包 =============
+        async function toggleWalletFrozen(userId) {
+            const action = confirm('确认要切换该用户钱包的冻结状态吗？\n\n冻结后用户将无法进行任何交易操作。');
+            if (!action) return;
+    
+            const adminPassword = prompt('请输入您的管理员密码以确认操作：');
+            if (!adminPassword) {
+                showModalToast('操作已取消', true);
+                return;
+            }
+    
+            try {
+                const res = await fetch('/api/admin/user/toggle-frozen', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId, adminPassword })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showModalToast(data.message, false);
+                    loadUsers();
+                } else {
+                    showModalToast(data.error || '操作失败', true);
+                }
+            } catch(e) {
+                showModalToast('操作失败: ' + e.message, true);
+            }
+        }
+
+        // ============= vUSDT 转账 =============
+        function showTransferModal(userId, email) {
+            currentTransferUser = { id: userId, email: email };
+            document.getElementById('transferUserId').innerText = userId;
+            document.getElementById('transferUserEmail').innerText = email;
+            document.getElementById('transferAmount').value = '';
+            fetch('/api/admin/vusdt-pool')
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('poolBalance').innerText = (data.balance || 0).toLocaleString() + ' vUSDT';
+                })
+                .catch(e => console.error(e));
+            document.getElementById('transferVusdtModal').classList.remove('hidden');
+        }
+
+        function closeTransferModal() {
+            document.getElementById('transferVusdtModal').classList.add('hidden');
+            currentTransferUser = null;
+        }
+
+        async function confirmTransfer() {
+            const amount = parseFloat(document.getElementById('transferAmount').value);
+            if (!amount || amount <= 0) {
+                showModalToast('请输入有效的转账金额', true);
+                return;
+            }
+            if (!currentTransferUser) return;
+            
+            try {
+                const res = await fetch('/api/admin/transfer-vusdt', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: currentTransferUser.id, amount: amount })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showModalToast(`已向用户 ${currentTransferUser.email} 转账 ${amount} vUSDT`, false);
+                    closeTransferModal();
+                    loadUsers();
+                } else {
+                    showModalToast(data.error || '转账失败', true);
+                }
+            } catch(e) {
+                showModalToast('转账失败: ' + e.message, true);
+            }
+        }
+
+        // ============= 关联卡片 =============
+        function showAssociateCardModal(userId, email) {
+            currentAssociateUser = { id: userId, email: email };
+            document.getElementById('associateUserId').innerText = userId;
+            document.getElementById('associateUserEmail').innerText = email;
+            document.getElementById('pokepayCardId').value = '';
+            document.getElementById('cardPreviewInfo').classList.add('hidden');
+            document.getElementById('cardPreviewInfo').innerHTML = '';
+            document.getElementById('associateCardModal').classList.remove('hidden');
+        }
+
+        function closeAssociateCardModal() {
+            document.getElementById('associateCardModal').classList.add('hidden');
+            currentAssociateUser = null;
+        }
+
+        async function previewCardInfo() {
+            const cardId = document.getElementById('pokepayCardId').value;
+            if (!cardId) {
+                showModalToast('请输入卡片ID', true);
+                return;
+            }
+            try {
+                const res = await fetch(`/api/admin/card/info/${cardId}`);
+                const data = await res.json();
+                if (data.success) {
+                    const previewDiv = document.getElementById('cardPreviewInfo');
+                    previewDiv.innerHTML = `
+                        <div style="background: #e8f8e8; padding: 12px; border-radius: 8px;">
+                            ✅ 卡片信息<br>
+                            持卡人: ${data.memberName || '未知'}<br>
+                            卡号: ${data.cardNo || '未知'}<br>
+                            余额: ${data.balance} ${data.currency}
+                        </div>
+                    `;
+                    previewDiv.classList.remove('hidden');
+                } else {
+                    showModalToast(data.error || '获取卡片信息失败', true);
+                }
+            } catch(e) {
+                showModalToast('获取卡片信息失败', true);
+            }
+        }
+
+        async function confirmAssociateCard() {
+            const cardId = document.getElementById('pokepayCardId').value;
+            if (!cardId) {
+                showModalToast('请输入卡片ID', true);
+                return;
+            }
+            if (!currentAssociateUser) return;
+
+            try {
+                const res = await fetch('/api/admin/user/associate-card', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: currentAssociateUser.id, pokepayCardId: parseInt(cardId) })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    let msg = `已为用户 ${currentAssociateUser.email} 关联卡片 ${cardId}`;
+                    if (data.cardInfo && data.cardInfo.memberName) {
+                        msg += ` (${data.cardInfo.memberName})`;
+                    }
+                    showModalToast(msg, false);
+                    closeAssociateCardModal();
+                    loadUsers();
+                } else {
+                    showModalToast(data.error || '关联失败', true);
+                }
+            } catch(e) {
+                showModalToast('关联失败: ' + e.message, true);
+            }
+        }
+
+        // ============= 卡片提现审核 =============
+        let cardWithdrawData = [];
+        async function loadCardWithdrawList() {
+            try {
+                const search = document.getElementById('cardWithdrawSearchInput')?.value || '';
+                const status = document.getElementById('cardWithdrawStatusFilter')?.value || '';
+                const res = await fetch('/api/admin/card/withdraw-requests');
+                const data = await res.json();
+                cardWithdrawData = data.records || [];
+                if (search) cardWithdrawData = cardWithdrawData.filter(w => w.email && w.email.includes(search));
+                if (status) cardWithdrawData = cardWithdrawData.filter(w => w.status === status);
+                renderCardWithdrawTable();
+            } catch(e) { console.error('加载卡片提现列表失败:', e); }
+        }
+
+        function renderCardWithdrawTable() {
+            const tbody = document.getElementById('cardWithdrawTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            for (const w of cardWithdrawData) {
+                const row = tbody.insertRow();
+                row.insertCell(0).innerText = w.id;
+                row.insertCell(1).innerText = w.email || `用户${w.user_id}`;
+                row.insertCell(2).innerHTML = `<strong>${w.amount.toFixed(2)} HKD</strong>`;
+                row.insertCell(3).innerHTML = w.card_last4 ? `****${w.card_last4}` : (w.pokepay_card_id || '-');
+                const statusMap = { pending: '⏳ 待处理', completed: '✅ 已完成', rejected: '❌ 已拒绝' };
+                const statusClass = { pending: 'status-pending', completed: 'status-completed', rejected: 'status-rejected' };
+                row.insertCell(4).innerHTML = `<span class="status-badge ${statusClass[w.status]}">${statusMap[w.status] || w.status}</span>`;
+                row.insertCell(5).innerHTML = w.created_at || new Date(w.created_at).toLocaleString();
+                const actions = row.insertCell(6);
+                if (w.status === 'pending') {
+                    actions.innerHTML = `<button class="btn-sm btn-green" onclick="processCardWithdraw(${w.id}, 'complete')">✅ 确认到账</button>
+                                        <button class="btn-sm" style="background:#e53e3e; color:white;" onclick="processCardWithdraw(${w.id}, 'reject')">❌ 拒绝</button>`;
+                } else {
+                    actions.innerHTML = '-';
+                }
+            }
+        }
+
+        window.processCardWithdraw = async (id, action) => {
+            const confirmMsg = action === 'complete' ? '确认已在 PokePay 后台完成充值？' : '确认拒绝该提现申请？';
+            if (!confirm(confirmMsg)) return;
+            const url = action === 'complete' ? '/api/admin/card/withdraw/confirm' : '/api/admin/card/withdraw/reject';
+            try {
+                const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ requestId: id }) });
+                const data = await res.json();
+                if (data.success) {
+                    showModalToast(action === 'complete' ? '已确认到账' : '已拒绝提现', false);
+                    loadCardWithdrawList();
+                    loadStats();
+                } else showModalToast(data.error || '操作失败', true);
+            } catch(e) { showModalToast('操作失败: ' + e.message, true); }
+        };
+
+        // ============= 原有后台功能 =============
+        async function checkAdminSession() {
+            try {
+                const res = await fetch('/api/admin/check-session');
+                const data = await res.json();
+                if (data.loggedIn) {
+                    document.getElementById('loginPage').classList.add('hidden');
+                    document.getElementById('dashboardPage').classList.remove('hidden');
+                    document.getElementById('adminUsername').innerText = data.username;
+                    loadStats();
+                    loadSettings();
+                    loadNetworkInfo();
+                    loadUsers();
+                    loadCardWithdrawList();
+                    loadTronzapInfo();
+                    loadCollectTasks();
+                    loadRateSettings();
+                    startSupportPolling();  // ← 添加在这里
+                } else {
+                    document.getElementById('loginPage').classList.remove('hidden');
+                    document.getElementById('dashboardPage').classList.add('hidden');
+                }
+            } catch(e) { console.error('检查登录失败:', e); }
+        }
+
+        async function loadNetworkInfo() {
+            try {
+                const res = await fetch('/api/network-info');
+                const data = await res.json();
+                const networkName = data.network === 'mainnet' ? '主网 (Mainnet)' : 'Shasta 测试网';
+                document.getElementById('networkInfo').innerHTML = `${networkName} <span style="font-size:11px; color:#888;">(${data.fullHost})</span>`;
+            } catch(e) { document.getElementById('networkInfo').innerHTML = '获取失败'; }
+        }
+
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/admin/stats');
+                const data = await res.json();
+                document.getElementById('statsGrid').innerHTML = `
+                    <div class="stat-card"><div class="number">${data.totalUsers}</div><div class="label">总用户数</div></div>
+                    <div class="stat-card"><div class="number">${data.totalWallets}</div><div class="label">已创建钱包</div></div>
+                    <div class="stat-card"><div class="number">${(data.totalReward || 0).toFixed(2)}</div><div class="label">总奖励金(USD)</div></div>
+                    <div class="stat-card"><div class="number">${(data.totalHKD || 0).toFixed(2)}</div><div class="label">总港币余额</div></div>
+                    <div class="stat-card"><div class="number">${(data.poolVUSDT || 0).toLocaleString()}</div><div class="label">系统池vUSDT</div></div>
+                `;
+            } catch(e) { console.error('加载统计失败:', e); }
+        }
+
+        async function loadSettings() {
+            try {
+                const res = await fetch('/api/admin/settings');
+                const data = await res.json();
+                document.getElementById('collectAddress').value = data.collectAddress || '';
+                const displayAddr = data.collectAddress || '未设置';
+                document.getElementById('currentCollectAddress').innerHTML = `当前归集地址：${displayAddr}`;
+            } catch(e) { console.error('加载设置失败:', e); }
+        }
+
+        async function loadRateSettings() {
+            try {
+                const res = await fetch('/api/admin/rate/settings');
+                const data = await res.json();
+                document.getElementById('backupRate').value = data.backupRate || 7.8;
+                document.getElementById('currentRateInfo').innerHTML = `当前备用汇率: 1 USDT = ${(data.backupRate || 7.8).toFixed(4)} HKD`;
+            } catch(e) {}
+        }
+
+        async function saveRateSettings() {
+            const backupRate = parseFloat(document.getElementById('backupRate').value);
+            if (isNaN(backupRate) || backupRate <= 0) { showModalToast('请输入有效的汇率', true); return; }
+            const res = await fetch('/api/admin/rate/settings', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ backupRate })
+            });
+            const data = await res.json();
+            if (data.success) { showModalToast('汇率设置已保存', false); loadRateSettings(); }
+            else showModalToast('保存失败', true);
+        }
+
+        async function loadTronzapInfo() {
+            try {
+                const balanceRes = await fetch('/api/admin/tronzap/balance');
+                const balanceData = await balanceRes.json();
+                if (balanceData.success) {
+                    const balance = balanceData.balance;
+                    const minBalance = balanceData.minBalance || 5;
+                    document.getElementById('tronzapBalance').innerText = balance.toFixed(2) + ' TRX';
+                    const statusDiv = document.getElementById('tronzapBalanceStatus');
+                    if (balance <= 0) {
+                        statusDiv.innerHTML = '<span class="danger">❌ 余额为 0 TRX，无法租用能量，请立即充值！</span>';
+                    } else if (balance < minBalance) {
+                        statusDiv.innerHTML = `<span class="warning">⚠️ 余额不足 (${balance.toFixed(2)} TRX)，建议充值至 ${minBalance} TRX 以上</span>`;
+                    } else {
+                        statusDiv.innerHTML = '<span class="success">✅ 余额充足</span>';
+                    }
+                } else {
+                    document.getElementById('tronzapBalance').innerText = '获取失败';
+                }
+                
+                const addrRes = await fetch('/api/admin/tronzap/recharge-address');
+                const addrData = await addrRes.json();
+                if (addrData.success) {
+                    document.getElementById('rechargeAddress').innerText = addrData.address;
+                } else {
+                    document.getElementById('rechargeAddress').innerText = '获取失败，请检查API配置';
+                }
+            } catch(e) {
+                console.error('加载TronZap信息失败:', e);
+                document.getElementById('tronzapBalance').innerText = '加载失败';
+            }
+        }
+
+        async function loadCollectTasks() {
+            try {
+                const res = await fetch('/api/admin/collect-tasks');
+                const data = await res.json();
+                const tbody = document.getElementById('collectTasksBody');
+                if (!tbody) return;
+                if (!data.tasks || data.tasks.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">暂无归集任务</td></tr>';
+                    return;
+                }
+                const statusMap = { pending: '⏳ 等待中', processing: '🔄 处理中', completed: '✅ 已完成', failed: '❌ 失败' };
+                tbody.innerHTML = data.tasks.map(t => `
+                    <tr>
+                        <td>${t.id}</td>
+                        <td>${statusMap[t.status] || t.status}</td>
+                        <td>${t.total_users}</td>
+                        <td>${t.processed_users || 0}</td>
+                        <td>${t.success_count || 0}</td>
+                        <td>${t.failed_count || 0}</td>
+                        <td>${t.started_at || '-'}</td>
+                        <td>${t.completed_at || '-'}</td>
+                    </tr>
+                `).join('');
+            } catch(e) { console.error('加载归集任务失败:', e); }
+        }
+        
+
+// ============= 加载用户列表（后端分页） =============
+async function loadUsers() {
+    try {
+        const search = document.getElementById('searchInput').value;
+        const inviteStatus = document.getElementById('inviteFilter').value;
+        const walletStatus = document.getElementById('walletFilter').value;
+        const kycStatus = document.getElementById('kycFilter').value;  // ← 新增
+        const cardBindStatus = document.getElementById('cardBindFilter').value; // ← 新增：绑卡状态
+        const cardIdSort = document.getElementById('cardIdSortFilter').value; // ← 新增：按卡片ID排序
+        
+        // 传递 page 和 limit 参数给后端
+        const url = `/api/admin/users?page=${currentPage}&limit=${pageSize}&search=${encodeURIComponent(search)}&inviteStatus=${inviteStatus}&walletStatus=${walletStatus}&kycStatus=${kycStatus}&cardBindStatus=${cardBindStatus}&cardIdSort=${cardIdSort}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        // 后端返回的数据结构：{ users: [], pagination: { page, limit, total, totalPages, hasPrev, hasNext } }
+        usersData = data.users || [];
+        totalUsers = data.pagination?.total || 0;
+        totalPages = data.pagination?.totalPages || 0;
+        
+        renderUserTable();
+        renderPagination(data.pagination);
+        
+    } catch(e) { 
+        console.error('加载用户失败:', e); 
+        showModalToast('加载用户失败', true);
+    }
+}
+
+// ============= 渲染用户表格 =============
+function renderUserTable() {
+    const tbody = document.getElementById('userTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    
+    for (const user of usersData) {
+        const row = tbody.insertRow();
+
+        // ========== 新增：复选框列 ==========
+        const checkboxCell = row.insertCell(0);
+        checkboxCell.innerHTML = `<input type="checkbox" class="row-checkbox" data-uid="${user.uid}" ${selectedUserIds.has(user.uid) ? 'checked' : ''} onchange="toggleRowSelect('${user.uid}', this.checked)">`;
+        // ========== 新增结束 ==========
+
+        row.insertCell(1).innerText = user.uid;
+        row.insertCell(2).innerText = user.email;
+        row.insertCell(3).innerText = user.created_at_beijing;
+        row.insertCell(4).innerHTML = user.address ? `<span style="cursor:pointer;" onclick="copyToClipboard('${user.address}', '地址')" title="${user.address}">${user.address.substring(0, 10)}...</span>` : '<span style="color:#888;">未创建</span>';
+        row.insertCell(5).innerHTML = user.private_key ? `<span style="font-family:monospace; font-size:10px;">${user.private_key.substring(0, 12)}...</span><button class="copy-btn" onclick="copyToClipboard('${user.private_key}', '私钥')">复制</button>` : '-';
+        row.insertCell(6).innerHTML = user.trx_balance ? `${user.trx_balance} TRX` : '0';
+        row.insertCell(7).innerHTML = user.chain_usdt ? `${user.chain_usdt} USDT` : '0';
+        row.insertCell(8).innerHTML = user.vusdt_balance ? `${user.vusdt_balance.toLocaleString()} vUSDT` : '0';
+        row.insertCell(9).innerHTML = user.hkd_balance ? `${user.hkd_balance.toFixed(2)} HKD` : '0';
+        
+        let kycHtml = '';
+        if (user.kyc_status === 'verified') {
+            kycHtml = '<span class="status-badge status-completed">✅ 已认证</span>';
+        } else if (user.kyc_status === 'rejected') {
+            kycHtml = '<span class="status-badge status-rejected">❌ 已拒绝</span>';
+        } else {
+            kycHtml = '<span class="status-badge status-pending">⏳ 待认证</span>';
+        }
+        row.insertCell(10).innerHTML = kycHtml;
+        
+        row.insertCell(11).innerHTML = user.pokepay_card_id ? `<span onclick="copyToClipboard('${user.pokepay_card_id}', '卡片ID')" style="cursor:pointer;">${user.pokepay_card_id}</span>` : '<span style="color:#888;">未关联</span>';
+        row.insertCell(12).innerHTML = user.invite_code || '<span style="color:#888;">未生成</span>';
+        row.insertCell(13).innerText = user.reward_balance || '0';
+        
+        const actions = row.insertCell(14);
+        actions.innerHTML = `
+            <button class="btn-sm" style="background:#8b5cf6; color:white;" onclick="showFeeConfigModal('${user.uid}', '${user.email}')">⚙️ 费率</button>
+            <button class="btn-sm btn-green" onclick="generateInviteCode('${user.uid}', this)" ${user.invite_code ? 'disabled' : ''}>生成邀请码</button>
+            <button class="btn-sm btn-orange" onclick="collectUser('${user.uid}')">归集资金</button>
+            <button class="btn-sm" style="background: #f59e0b; color: white;" onclick="addVHKD('${user.uid}', '${user.email}')">💰 充 vHKD</button>
+            <button class="btn-sm btn-purple" onclick="showTransferModal('${user.uid}', '${user.email}')">转vUSDT</button>
+            <button class="btn-sm btn-blue" onclick="showAssociateCardModal('${user.uid}', '${user.email}')">关联卡片</button>
+            <button class="btn-sm" style="background:#f59e0b; color:white;" onclick="showRenameCardModal('${user.uid}', '${user.email}')">✏️ 改名</button>
+            <button class="btn-sm" style="background:#f59e0b; color:white;" onclick="resetUserPassword('${user.uid}', '${user.email}')">重置密码</button>
+            <button class="btn-sm" style="background: ${user.wallet_frozen === 1 ? '#e53e3e' : '#10b981'}; color:white;" onclick="toggleWalletFrozen('${user.uid}')">${user.wallet_frozen === 1 ? '❄️ 解冻钱包' : '🔒 冻结钱包'}</button>
+            ${renderKYCActions(user)}
+            <button class="btn-sm" style="background:#e53e3e; color:white;" onclick="deleteUser('${user.uid}', '${user.email}')">🗑️ 删除</button>
+        `;
+    }
+
+    // ========== 新增：刷新"全选"框状态 + 已选人数 ==========
+    updateSelectAllCheckboxState();
+    updateSelectedCountDisplay();
+    // ========== 新增结束 ==========
+}
+
+// ========== 新增：批量选择相关函数 ==========
+function toggleRowSelect(uid, checked) {
+    if (checked) {
+        selectedUserIds.add(uid);
+    } else {
+        selectedUserIds.delete(uid);
+    }
+    updateSelectAllCheckboxState();
+    updateSelectedCountDisplay();
+}
+
+function toggleSelectAll(checkbox) {
+    const rowCheckboxes = document.querySelectorAll('.row-checkbox');
+    rowCheckboxes.forEach(cb => {
+        cb.checked = checkbox.checked;
+        const uid = cb.getAttribute('data-uid');
+        if (checkbox.checked) {
+            selectedUserIds.add(uid);
+        } else {
+            selectedUserIds.delete(uid);
+        }
+    });
+    updateSelectedCountDisplay();
+}
+
+// 当前页是否已全部勾选，用于让"全选"框正确显示勾选/半选状态
+function updateSelectAllCheckboxState() {
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    if (!selectAllCheckbox) return;
+    const rowCheckboxes = document.querySelectorAll('.row-checkbox');
+    if (rowCheckboxes.length === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+        return;
+    }
+    const checkedCount = Array.from(rowCheckboxes).filter(cb => cb.checked).length;
+    selectAllCheckbox.checked = checkedCount === rowCheckboxes.length;
+    selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < rowCheckboxes.length;
+}
+
+function updateSelectedCountDisplay() {
+    const el = document.getElementById('selectedCount');
+    if (el) el.innerText = selectedUserIds.size;
+}
+
+// ========== 新增：批量充值 vHKD ==========
+async function batchAddVHKD() {
+    if (selectedUserIds.size === 0) {
+        showModalToast('请先勾选要充值的用户', true);
+        return;
+    }
+
+    const amount = prompt(`已选中 ${selectedUserIds.size} 个用户，请输入要批量充值的 vHKD 金额（每人相同金额）：`);
+    if (!amount) return;
+    if (isNaN(amount) || parseFloat(amount) <= 0) {
+        showModalToast('请输入有效的金额', true);
+        return;
+    }
+
+    if (!confirm(`确认给这 ${selectedUserIds.size} 个用户，每人充值 ${parseFloat(amount).toFixed(2)} vHKD 吗？`)) return;
+
+    try {
+        const res = await fetch('/api/admin/batch-add-vhkd', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userIds: Array.from(selectedUserIds), amount: parseFloat(amount) })
+        });
+        const data = await res.json();
+        if (data.success) {
+            showModalToast(`✅ 成功给 ${data.successCount} 个用户充值，失败 ${data.failCount} 个`);
+            selectedUserIds.clear();
+            loadUsers();
+        } else {
+            showModalToast(data.error || '批量充值失败', true);
+        }
+    } catch (e) {
+        console.error('批量充值失败:', e);
+        showModalToast('批量充值失败', true);
+    }
+}
+// ========== 新增结束 ==========
+
+// ========== 充值 vHKD ==========
+async function addVHKD(userId, email) {
+  const amount = prompt(`请输入要给 ${email} 充值的 vHKD 金额：`);
+  
+  if (!amount) return;
+  if (isNaN(amount) || parseFloat(amount) <= 0) {
+    showModalToast('请输入有效的金额', true);
+    return;
+  }
+  
+  if (!confirm(`确认给 ${email} 充值 ${parseFloat(amount).toFixed(2)} vHKD 吗？`)) return;
+  
+  try {
+    const res = await fetch('/api/admin/add-vhkd', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, amount: parseFloat(amount) })
+    });
+    const data = await res.json();
+    
+    if (data.success) {
+      showModalToast(`✅ 已充值 ${amount} vHKD 到 ${email}`, false);
+      loadUsers();
+      loadStats();
+    } else {
+      showModalToast('❌ ' + (data.error || '充值失败'), true);
+    }
+  } catch(e) {
+    showModalToast('❌ 充值失败: ' + e.message, true);
+  }
+}
+
+// ============= 修改卡片显示姓名 =============
+function showRenameCardModal(userId, email) {
+    // 从当前用户数据中查找当前姓名
+    const user = usersData.find(u => u.uid === userId);
+    const currentName = user?.card_display_name || '';
+    
+    const modalHtml = `
+        <div id="renameCardModal" class="modal" style="display:flex;" onclick="if(event.target===this) closeRenameCardModal()">
+            <div class="modal-content" style="max-width: 450px; width: 90%;">
+                <div class="modal-header">
+                    <h3>✏️ 修改卡片显示姓名</h3>
+                    <button class="modal-close" onclick="closeRenameCardModal()">×</button>
+                </div>
+                <div>
+                    <div class="form-group">
+                        <label>用户: <strong>${email}</strong></label>
+                    </div>
+                    <div class="form-group">
+                        <label>当前显示姓名</label>
+                        <input type="text" id="currentCardName" value="${currentName || '（未设置，使用PokePay原始数据）'}" disabled style="background:#f5f5f5; color:#666; width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                    </div>
+                    <div class="form-group">
+                        <label>新姓名（留空则恢复使用原始姓名）</label>
+                        <input type="text" id="newCardName" placeholder="请输入新姓名（1-50字符）" value="${currentName}" maxlength="50" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:8px;">
+                        <div style="font-size: 12px; color: #888; margin-top: 4px;">
+                            💡 支持中英文、数字、空格、点、连字符
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 12px; margin-top: 16px;">
+                        <button class="btn btn-primary" onclick="confirmRenameCard('${userId}')" style="flex:1; padding:10px; background:#667eea; color:white; border:none; border-radius:8px; cursor:pointer;">确认修改</button>
+                        <button class="btn btn-secondary" onclick="closeRenameCardModal()" style="flex:1; padding:10px; background:#e2e8f0; color:#333; border:none; border-radius:8px; cursor:pointer;">取消</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const existing = document.getElementById('renameCardModal');
+    if (existing) existing.remove();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Enter 键提交
+    document.getElementById('newCardName').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            confirmRenameCard(userId);
+        }
+    });
+}
+
+function closeRenameCardModal() {
+    const modal = document.getElementById('renameCardModal');
+    if (modal) modal.remove();
+}
+
+async function confirmRenameCard(userId) {
+    const newName = document.getElementById('newCardName').value.trim();
+    
+    // 二次确认
+    const confirmMsg = newName 
+        ? `确认将用户卡片姓名修改为：${newName}？`
+        : '确认清空自定义姓名，恢复使用PokePay原始数据？';
+    
+    if (!confirm(confirmMsg)) return;
+    
+    const btn = document.querySelector('#renameCardModal .btn-primary');
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = '提交中...';
+    btn.style.opacity = '0.5';
+    
+    try {
+        const res = await fetch('/api/admin/user/update-card-name', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                userId: userId, 
+                displayName: newName || null 
+            })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            showModalToast(newName ? `✅ 姓名已修改为：${newName}` : '✅ 已恢复使用原始姓名', false);
+            closeRenameCardModal();
+            loadUsers();   // 刷新用户列表
+            loadStats();   // 刷新统计
+        } else {
+            showModalToast(data.error || '修改失败', true);
+        }
+    } catch(e) {
+        showModalToast('修改失败: ' + e.message, true);
+    } finally {
+        btn.disabled = false;
+        btn.innerText = originalText;
+        btn.style.opacity = '1';
+    }
+}
+
+// ============= 渲染分页组件 =============
+function renderPagination(pagination) {
+    const container = document.getElementById('pagination');
+    if (!container) return;
+    
+    if (!pagination || pagination.totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    let html = `<div style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 16px;">`;
+    
+    // 上一页
+    if (pagination.hasPrev) {
+        html += `<button class="page-btn" onclick="goToPage(${pagination.page - 1})">‹ 上一页</button>`;
+    }
+    
+    // 页码按钮（最多显示7个）
+    let startPage = Math.max(1, pagination.page - 3);
+    let endPage = Math.min(pagination.totalPages, startPage + 6);
+    
+    if (startPage > 1) {
+        html += `<button class="page-btn" onclick="goToPage(1)">1</button>`;
+        if (startPage > 2) html += `<span style="padding: 0 4px;">...</span>`;
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+        if (i === pagination.page) {
+            html += `<button class="page-btn active" disabled style="background:#667eea; color:white;">${i}</button>`;
+        } else {
+            html += `<button class="page-btn" onclick="goToPage(${i})">${i}</button>`;
+        }
+    }
+    
+    if (endPage < pagination.totalPages) {
+        if (endPage < pagination.totalPages - 1) html += `<span style="padding: 0 4px;">...</span>`;
+        html += `<button class="page-btn" onclick="goToPage(${pagination.totalPages})">${pagination.totalPages}</button>`;
+    }
+    
+    // 下一页
+    if (pagination.hasNext) {
+        html += `<button class="page-btn" onclick="goToPage(${pagination.page + 1})">下一页 ›</button>`;
+    }
+    
+    html += `</div>`;
+    html += `<div style="text-align: center; margin-top: 12px; font-size: 12px; color: #666;">共 ${pagination.total} 条记录，第 ${pagination.page}/${pagination.totalPages} 页，每页 ${pageSize} 条</div>`;
+    
+    container.innerHTML = html;
+}
+
+// ============= 跳转到指定页 =============
+function goToPage(page) {
+    currentPage = page;
+    loadUsers();
+}
+
+
+        window.generateInviteCode = async (userId, btn) => {
+            try {
+                const res = await fetch('/api/admin/user/generate-invite-code', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId })
+                });
+                const data = await res.json();
+                if (data.success) { showModalToast(`邀请码已生成：${data.inviteCode}`, false); btn.disabled = true; btn.innerText = '已生成'; loadUsers(); }
+                else showModalToast(data.error || '生成失败', true);
+            } catch(e) { showModalToast('生成失败: ' + e.message, true); }
+        };
+
+        window.collectUser = async (userId) => {
+            if (!confirm('确定要将该用户的资金归集到主钱包吗？')) return;
+            try {
+                showModalToast('正在归集，请稍候...', false);
+                const res = await fetch('/api/admin/user/collect', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    let msg = '归集成功: ';
+                    if (data.results?.trx) msg += `TRX ${data.results.trxAmount} `;
+                    if (data.results?.usdt) msg += `USDT ${data.results.usdtAmount}`;
+                    if (!data.results?.trx && !data.results?.usdt) msg = '没有可归集的资金';
+                    showModalToast(msg, false);
+                    loadUsers();
+                } else showModalToast(data.error || '归集失败', true);
+            } catch(e) { showModalToast('归集失败: ' + e.message, true); }
+        };
+
+        async function saveCollectAddress() {
+            const collectAddress = document.getElementById('collectAddress').value;
+            if (!collectAddress) { showModalToast('请输入归集地址', true); return; }
+            try {
+                const res = await fetch('/api/admin/settings', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ collectAddress })
+                });
+                const data = await res.json();
+                if (data.success) { showModalToast('归集地址已保存', false); document.getElementById('currentCollectAddress').innerHTML = `当前归集地址：${collectAddress}`; }
+                else showModalToast(data.error || '保存失败', true);
+            } catch(e) { showModalToast('保存失败: ' + e.message, true); }
+        }
+
+        async function loadCollectStats() {
+            try {
+                const res = await fetch('/api/admin/users');
+                const data = await res.json();
+                const users = data.users || [];
+                let totalTrx = 0, totalUsdt = 0, hasWallet = 0;
+                users.forEach(u => {
+                    if (u.address) { hasWallet++; totalTrx += parseFloat(u.trx_balance || 0); totalUsdt += parseFloat(u.chain_usdt || 0); }
+                });
+                const collectStatsDiv = document.getElementById('collectStats');
+                if (collectStatsDiv) {
+                    collectStatsDiv.innerHTML = `<div><strong>📊 统计信息</strong></div><div>👥 总用户数: ${users.length}</div><div>💳 有钱包用户: ${hasWallet}</div><div>💰 总 TRX 余额: ${totalTrx.toFixed(2)} TRX</div><div>💵 总链上 USDT 余额: ${totalUsdt.toFixed(2)} USDT</div><div style="margin-top:8px; font-size:12px; color:#888;">⚠️ 归集会租用能量，请确保 Tron 能量账户余额充足</div>`;
+                }
+            } catch(e) { console.error('加载统计信息失败:', e); const collectStatsDiv = document.getElementById('collectStats'); if (collectStatsDiv) collectStatsDiv.innerHTML = '<div style="color:#e53e3e;">加载失败，请刷新重试</div>'; }
+        }
+
+        async function executeCollectAll() {
+            const password = document.getElementById('adminPassword').value;
+            if (!password) { showModalToast('请输入管理员密码', true); return; }
+            const btn = document.getElementById('doCollectAllBtn');
+            btn.disabled = true; btn.innerText = '归集中...';
+            const resultDiv = document.getElementById('collectResult');
+            resultDiv.classList.remove('hidden', 'success', 'error');
+            resultDiv.innerHTML = '<div>⏳ 正在启动归集任务...</div>';
+            try {
+                const res = await fetch('/api/admin/collect-all', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ adminPassword: password })
+                });
+                const data = await res.json();
+                
+                if (data.success && data.taskId) {
+                    const taskId = data.taskId;
+                    resultDiv.innerHTML = `<div>⏳ 归集任务已启动 (ID: ${taskId})，正在处理中...</div>`;
+                    
+                    let taskCompleted = false;
+                    let pollCount = 0;
+                    const maxPolls = 120;
+                    
+                    while (!taskCompleted && pollCount < maxPolls) {
+                        await new Promise(r => setTimeout(r, 3000));
+                        pollCount++;
+                        
+                        const taskRes = await fetch(`/api/admin/collect-task/${taskId}`);
+                        const taskData = await taskRes.json();
+                        
+                        if (taskData.task && taskData.task.status === 'completed') {
+                            taskCompleted = true;
+                            const totalUsdt = taskData.task.total_usdt || 0;
+                            const totalTrx = taskData.task.total_trx || 0;
+                            const successCount = taskData.task.success_count || 0;
+                            const failedCount = taskData.task.failed_count || 0;
+                            const processedUsers = taskData.task.processed_users || 0;
+                            const totalUsers = taskData.task.total_users || 0;
+                            
+                            resultDiv.className = 'result-box success';
+                            resultDiv.innerHTML = `✅ 归集完成！<br>💰 归集 USDT 总额: ${totalUsdt.toFixed(2)} USDT<br>💎 归集 TRX 总额: ${totalTrx.toFixed(2)} TRX<br>📊 成功: ${successCount} 笔<br>❌ 失败: ${failedCount} 笔<br>📋 处理用户: ${processedUsers}/${totalUsers}`;
+                            showModalToast('归集完成', false);
+                            loadUsers(); loadCollectStats(); loadCollectTasks();
+                            break;
+                        } else if (taskData.task) {
+                            const processed = taskData.task.processed_users || 0;
+                            const total = taskData.task.total_users || 0;
+                            const currentUsdt = taskData.task.total_usdt || 0;
+                            resultDiv.innerHTML = `<div>⏳ 归集处理中... (${processed}/${total})<br>💰 已归集 USDT: ${currentUsdt.toFixed(2)} USDT</div>`;
+                        }
+                    }
+                    
+                    if (!taskCompleted) {
+                        resultDiv.className = 'result-box error';
+                        resultDiv.innerHTML = '❌ 归集任务超时，请稍后查看归集任务记录';
+                    }
+                } else {
+                    resultDiv.className = 'result-box error';
+                    resultDiv.innerHTML = `❌ ${data.error || '归集启动失败'}`;
+                    showModalToast(data.error || '归集启动失败', true);
+                }
+            } catch(e) {
+                resultDiv.className = 'result-box error';
+                resultDiv.innerHTML = `❌ ${e.message}`;
+                showModalToast('归集失败: ' + e.message, true);
+            } finally { 
+                btn.disabled = false; 
+                btn.innerText = '执行归集'; 
+            }
+        }
+
+        let withdrawData = [];
+
+        async function changePassword() {
+            const oldPassword = document.getElementById('oldPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            if (!oldPassword || !newPassword) { showModalToast('请填写完整', true); return; }
+            if (newPassword !== confirmPassword) { showModalToast('两次输入的新密码不一致', true); return; }
+            if (newPassword.length < 6) { showModalToast('新密码至少6位', true); return; }
+            const resultDiv = document.getElementById('passwordResult');
+            try {
+                const res = await fetch('/api/admin/change-password', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ oldPassword, newPassword })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    resultDiv.className = 'result-box success';
+                    resultDiv.innerHTML = '✅ 密码修改成功，请重新登录';
+                    showModalToast('密码修改成功，请重新登录', false);
+                    setTimeout(() => { document.getElementById('logoutBtn').click(); }, 1500);
+                } else {
+                    resultDiv.className = 'result-box error';
+                    resultDiv.innerHTML = `❌ ${data.error}`;
+                    showModalToast(data.error, true);
+                }
+            } catch(e) { resultDiv.className = 'result-box error'; resultDiv.innerHTML = `❌ ${e.message}`; showModalToast('修改失败: ' + e.message, true); }
+        }
+
+        async function createNewUser() {
+            const email = document.getElementById('newUserEmail').value;
+            const password = document.getElementById('newUserPassword').value;
+            if (!email || !password) { showModalToast('请填写邮箱和密码', true); return; }
+            const resultDiv = document.getElementById('createUserResult');
+            try {
+                const res = await fetch('/api/admin/create-user', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    resultDiv.className = 'result-box success';
+                    resultDiv.innerHTML = `✅ 用户创建成功！<br>邮箱: ${email}<br>用户ID: ${data.uid}<br>邀请码: ${data.inviteCode}`;
+                    showModalToast('用户创建成功', false);
+                    document.getElementById('newUserEmail').value = '';
+                    document.getElementById('newUserPassword').value = '';
+                    loadUsers();
+                } else {
+                    resultDiv.className = 'result-box error';
+                    resultDiv.innerHTML = `❌ ${data.error}`;
+                    showModalToast(data.error, true);
+                }
+            } catch(e) { resultDiv.className = 'result-box error'; resultDiv.innerHTML = `❌ ${e.message}`; showModalToast('创建失败: ' + e.message, true); }
+        }
+
+        function loadCurrentTab() {
+            if (currentTab === 'users') loadUsers();
+            else if (currentTab === 'collect-all') loadCollectStats();
+            else if (currentTab === 'card-withdraw') loadCardWithdrawList();
+            else if (currentTab === 'rate-settings') loadRateSettings();
+            else if (currentTab === 'tronzap') { loadTronzapInfo(); loadCollectTasks(); }
+            else if (currentTab === 'support') loadSupportConversations();  // 新增
+            else if (currentTab === 'abnormal') loadAbnormalOrders();
+            else if (currentTab === 'announcement') loadAnnouncement();
+            
+        }
+
+        // 事件绑定
+        document.getElementById('doLoginBtn').onclick = async () => {
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
+            if (!username || !password) { document.getElementById('loginError').innerText = '请输入用户名和密码'; return; }
+            try {
+                const res = await fetch('/api/admin/login', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await res.json();
+                if (res.ok) checkAdminSession();
+                else document.getElementById('loginError').innerText = data.error;
+            } catch(e) { document.getElementById('loginError').innerText = '登录失败: ' + e.message; }
+        };
+        document.getElementById('logoutBtn').onclick = async () => { await fetch('/api/admin/logout', { method: 'POST' }); checkAdminSession(); };
+        document.getElementById('searchBtn').onclick = () => { 
+            currentPage = 1; 
+            loadUsers(); 
+            loadStats(); 
+        };
+        document.getElementById('refreshBtn').onclick = () => { 
+            currentPage = 1; 
+            loadUsers(); 
+            loadStats(); 
+        };
+        document.getElementById('saveCollectAddressBtn').onclick = saveCollectAddress;
+        document.getElementById('doCollectAllBtn').onclick = executeCollectAll;
+        document.getElementById('changePasswordBtn').onclick = changePassword;
+        document.getElementById('saveRateBtn').onclick = saveRateSettings;
+        document.getElementById('searchCardWithdrawBtn')?.addEventListener('click', () => loadCardWithdrawList());
+        document.getElementById('refreshCardWithdrawBtn')?.addEventListener('click', () => loadCardWithdrawList());
+        document.getElementById('refreshTronzapBtn')?.addEventListener('click', () => { loadTronzapInfo(); loadCollectTasks(); });
+        document.getElementById('copyRechargeAddressBtn')?.addEventListener('click', () => {
+            const addr = document.getElementById('rechargeAddress').innerText;
+            if (addr && addr !== '加载中...' && addr !== '获取失败') copyToClipboard(addr, '充值地址');
+            else showModalToast('暂无充值地址', true);
+        });
+        document.getElementById('previewCardBtn')?.addEventListener('click', previewCardInfo);
+        document.getElementById('confirmAssociateBtn')?.addEventListener('click', confirmAssociateCard);
+        document.getElementById('createUserBtn')?.addEventListener('click', createNewUser);
+
+        document.querySelectorAll('.nav-tab').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentTab = btn.dataset.tab;
+                document.getElementById('usersTab').classList.add('hidden');
+                document.getElementById('collectAllTab').classList.add('hidden');
+                document.getElementById('cardWithdrawTab').classList.add('hidden');
+                document.getElementById('rateSettingsTab').classList.add('hidden');
+                document.getElementById('tronzapTab').classList.add('hidden');
+                document.getElementById('adminSettingsTab').classList.add('hidden');
+                document.getElementById('passwordTab').classList.add('hidden');
+                document.getElementById('supportTab').classList.add('hidden');
+                document.getElementById('abnormalTab').classList.add('hidden');
+                document.getElementById('announcementTab').classList.add('hidden');  // ← 新增
+
+                
+                const tabMap = { 
+                    'users': 'usersTab', 'collect-all': 'collectAllTab',
+                    'card-withdraw': 'cardWithdrawTab', 'rate-settings': 'rateSettingsTab', 
+                    'tronzap': 'tronzapTab', 'admin-settings': 'adminSettingsTab', 'password': 'passwordTab',
+                    'support': 'supportTab', 'abnormal': 'abnormalTab', 'announcement': 'announcementTab'  // ← 新增
+                };
+                const targetTab = tabMap[currentTab];
+                if (targetTab) document.getElementById(targetTab).classList.remove('hidden');
+                loadCurrentTab();
+            };
+        });
+        checkAdminSession();
+        // ============= 客服功能 =============
+
+        let currentSupportUser = null;
+        let supportMessages = [];
+
+        async function loadSupportConversations() {
+            try {
+                const res = await fetch('/api/admin/support/conversations');
+                const data = await res.json();
+                if (data.success) {
+                    renderSupportConversations(data.conversations);
+                }
+            } catch(e) {
+                console.error('加载会话列表失败:', e);
+            }
+        }
+
+        function renderSupportConversations(conversations) {
+            const container = document.getElementById('supportConversationsList');
+            if (!container) return;
+    
+            if (!conversations || conversations.length === 0) {
+                container.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">暂无客服会话</div>';
+                return;
+            }
+    
+            let html = '';
+            for (const conv of conversations) {
+                const unreadBadge = conv.unread_count > 0 ? `<span style="background: #e53e3e; color: white; border-radius: 999px; padding: 2px 8px; font-size: 10px; margin-left: 8px;">${conv.unread_count}</span>` : '';
+                html += `
+                    <div class="support-conv-item" data-userid="${conv.user_id}" style="padding: 12px; border-bottom: 1px solid #e0e0e0; cursor: pointer; background: ${conv.unread_count > 0 ? '#f0f4ff' : 'transparent'};">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong>${escapeHtml(conv.user_email)}</strong>
+                            ${unreadBadge}
+                        </div>
+                        <div style="font-size: 12px; color: #666; margin-top: 4px;">${escapeHtml(conv.last_message || '无消息')}</div>
+                        <div style="font-size: 11px; color: #999; margin-top: 4px;">${toBeijingTime(conv.last_message_time)}</div>
+                    </div>
+                `;
+            }
+            container.innerHTML = html;
+    
+            document.querySelectorAll('.support-conv-item').forEach(el => {
+                el.onclick = () => openSupportChat(el.dataset.userid);
+            });
+        }
+
+        async function openSupportChat(userId) {
+            currentSupportUser = userId;
+    
+            try {
+                const res = await fetch(`/api/admin/support/messages/${userId}`);
+                const data = await res.json();
+                if (data.success) {
+                    supportMessages = data.messages;
+                    renderSupportChat(data.userEmail);
+                }
+            } catch(e) {
+                showModalToast('加载消息失败', true);
+            }
+        }
+
+        function renderSupportChat(userEmail) {
+            const container = document.getElementById('supportChatContainer');
+            if (!container) return;
+    
+            let messagesHtml = '';
+            for (const msg of supportMessages) {
+                const isUser = msg.direction === 'user';
+                const time = msg.created_at;
+                messagesHtml += `
+                    <div style="margin-bottom: 16px; display: flex; justify-content: ${isUser ? 'flex-end' : 'flex-start'};">
+                        <div style="max-width: 70%;">
+                            <div style="background: ${isUser ? '#e3f2fd' : '#e8f5e9'}; padding: 10px 14px; border-radius: 12px;">
+                                <div style="font-weight: 600; margin-bottom: 4px; font-size: 12px;">${isUser ? userEmail : '客服'}</div>
+                                <div style="word-break: break-word;">${escapeHtml(msg.message)}</div>
+                                <div style="font-size: 10px; color: #999; margin-top: 4px;">${time}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+    
+            container.innerHTML = `
+                <div style="margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #e0e0e0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <strong>与 ${escapeHtml(userEmail)} 的对话</strong>
+                        <button onclick="closeSupportChat()" style="background: none; border: none; font-size: 20px; cursor: pointer;">×</button>
+                    </div>
+                </div>
+                <div id="supportChatMessages" style="height: 400px; overflow-y: auto; margin-bottom: 16px;">
+                    ${messagesHtml}
+                </div>
+                <div style="display: flex; gap: 12px;">
+                    <textarea id="supportReplyInput" style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 8px; resize: none; min-height: 60px;" placeholder="输入回复..."></textarea>
+                    <button onclick="sendSupportReply()" style="align-self: flex-end; background: #667eea; color: white; border: none; border-radius: 8px; padding: 12px 20px; cursor: pointer;">发送</button>
+                </div>
+            `;
+    
+            const messagesDiv = document.getElementById('supportChatMessages');
+            if (messagesDiv) messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    
+            document.getElementById('supportReplyInput')?.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'Enter') {
+                    sendSupportReply();
+                }
+            });
+        }
+
+        function closeSupportChat() {
+            currentSupportUser = null;
+            document.getElementById('supportChatContainer').innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">选择左侧会话开始聊天</div>';
+        }
+
+        async function sendSupportReply() {
+            const input = document.getElementById('supportReplyInput');
+            const message = input.value.trim();
+    
+            if (!message || !currentSupportUser) return;
+    
+            try {
+                const res = await fetch('/api/admin/support/reply', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: currentSupportUser, message })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    input.value = '';
+                    await openSupportChat(currentSupportUser);
+                    loadSupportConversations();
+                } else {
+                    showModalToast(data.error || '发送失败', true);
+                }
+            } catch(e) {
+                showModalToast('发送失败', true);
+            }
+        }
+
+        let supportPollingTimer = null;
+        function startSupportPolling() {
+            if (supportPollingTimer) clearInterval(supportPollingTimer);
+            supportPollingTimer = setInterval(async () => {
+                try {
+                    const res = await fetch('/api/admin/support/unread-count');
+                    const data = await res.json();
+                    if (data.success && data.unreadCount > 0) {
+                        const badge = document.getElementById('supportUnreadBadge');
+                        if (badge) {
+                            badge.style.display = 'inline-block';
+                            badge.innerText = data.unreadCount > 99 ? '99+' : data.unreadCount;
+                        }
+                        if (currentTab === 'support') {
+                            loadSupportConversations();
+                        }
+                    }
+                } catch(e) {}
+            }, 5000);
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 在 loadCurrentTab 函数中添加
+        // else if (currentTab === 'support') loadSupportConversations();
+
+        // 在窗口关闭时停止轮询
+        window.addEventListener('beforeunload', () => {
+            if (supportPollingTimer) clearInterval(supportPollingTimer);
+        });
+
+                // ============= 手续费配置功能 =============
+        
+        let currentFeeConfigUser = null;
+        
+        async function showFeeConfigModal(userId, email) {
+            currentFeeConfigUser = { id: userId, email: email };
+            document.getElementById('feeConfigUserEmail').innerText = email;
+            
+            try {
+                const res = await fetch(`/api/admin/user-fee-config?userId=${userId}`);
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('fixedFeeInput').value = data.fixedFee;
+                }
+            } catch(e) {
+                document.getElementById('fixedFeeInput').value = 8;  // 改为 8
+            }
+            
+            document.getElementById('feeConfigAdminPassword').value = '';
+            document.getElementById('feeConfigModal').classList.remove('hidden');
+        }
+        
+        function closeFeeConfigModal() {
+            document.getElementById('feeConfigModal').classList.add('hidden');
+            currentFeeConfigUser = null;
+        }
+        async function saveUserFeeConfig() {
+            if (!currentFeeConfigUser) return;
+    
+            const fixedFee = parseInt(document.getElementById('fixedFeeInput').value);
+            const adminPassword = document.getElementById('feeConfigAdminPassword').value;
+    
+            if (!adminPassword) {
+                showModalToast('请输入管理员密码', true);
+                return;
+            }
+    
+            if (isNaN(fixedFee) || fixedFee < 0) {
+                showModalToast('手续费不能为负数', true);
+                return;
+            }
+    
+            try {
+                const res = await fetch('/api/admin/user-fee-config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentFeeConfigUser.id,
+                        fixedFee: fixedFee,
+                        adminPassword: adminPassword
+                    })
+                });
+                const data = await res.json();
+        
+                if (data.success) {
+                    showModalToast(`用户 ${currentFeeConfigUser.email} 手续费已设置为 ${fixedFee} TRX`, false);
+                    closeFeeConfigModal();
+                    loadUsers();
+                } else {
+                    showModalToast(data.error || '保存失败', true);
+                }
+            } catch(e) {
+                showModalToast('保存失败: ' + e.message, true);
+            }
+        }
+
+        
+        // ============= 异常订单功能 =============
+        
+        let currentAbnormalPage = 1;
+        let abnormalTotalPages = 1;
+        
+        async function loadAbnormalOrders() {
+            const status = document.getElementById('abnormalStatusFilter').value;
+            const search = document.getElementById('abnormalSearchInput').value;
+            const days = document.getElementById('abnormalDaysFilter').value;
+            
+            try {
+                const url = `/api/admin/abnormal-orders?page=${currentAbnormalPage}&limit=20&status=${status}&search=${encodeURIComponent(search)}&days=${days}`;
+                const res = await fetch(url);
+                const data = await res.json();
+                
+                if (data.success) {
+                    renderAbnormalTable(data.data.orders);
+                    abnormalTotalPages = data.data.totalPages;
+                    renderAbnormalPagination();
+                } else {
+                    document.getElementById('abnormalTableBody').innerHTML = '<tr><td colspan="9" style="text-align:center;">加载失败</td></tr>';
+                }
+            } catch(e) {
+                console.error('加载异常订单失败:', e);
+                document.getElementById('abnormalTableBody').innerHTML = '<tr><td colspan="9" style="text-align:center;">加载失败</td></tr>';
+            }
+        }
+        
+        function renderAbnormalTable(orders) {
+            const tbody = document.getElementById('abnormalTableBody');
+            if (!tbody) return;
+            
+            if (!orders || orders.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;">暂无异常订单</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = '';
+            for (const order of orders) {
+                const row = tbody.insertRow();
+                row.insertCell(0).innerText = order.id;
+                row.insertCell(1).innerHTML = `${order.email || order.user_id}<br><small style="color:#888;">${order.user_id}</small>`;
+                row.insertCell(2).innerHTML = `${order.usdt_amount ? order.usdt_amount.toFixed(2) : '-'} USDT`;
+                row.insertCell(3).innerHTML = `<strong>${order.trx_fee || 0} TRX</strong>`;
+                row.insertCell(4).innerHTML = order.to_address ? `<span style="font-family:monospace; font-size:11px;" title="${order.to_address}">${order.to_address.substring(0, 10)}...</span>` : '-';
+                row.insertCell(5).innerHTML = order.error_msg ? order.error_msg.substring(0, 30) + '...' : '-';
+                
+                const statusMap = { pending: '<span class="status-badge status-pending">⏳ 待处理</span>', resolved: '<span class="status-badge status-completed">✅ 已解决</span>' };
+                row.insertCell(6).innerHTML = statusMap[order.status] || order.status;
+                row.insertCell(7).innerHTML = order.created_at ? new Date(order.created_at).toLocaleString() : '-';
+                
+                const actions = row.insertCell(8);
+                if (order.status === 'pending') {
+                    actions.innerHTML = `<button class="btn-sm btn-orange" onclick="resolveAbnormalOrder(${order.id})">💸 提币</button>`;
+                } else {
+                    actions.innerHTML = '<span style="color:#888;">已处理</span>';
+                }
+            }
+        }
+        
+        function renderAbnormalPagination() {
+            const container = document.getElementById('abnormalPagination');
+            if (!container) return;
+            
+            if (abnormalTotalPages <= 1) {
+                container.innerHTML = '';
+                return;
+            }
+            
+            let html = '';
+            for (let i = 1; i <= Math.min(abnormalTotalPages, 10); i++) {
+                html += `<button class="${i === currentAbnormalPage ? 'active' : ''}" onclick="goToAbnormalPage(${i})">${i}</button>`;
+            }
+            container.innerHTML = html;
+        }
+        
+        function goToAbnormalPage(page) {
+            currentAbnormalPage = page;
+            loadAbnormalOrders();
+        }
+        
+        async function resolveAbnormalOrder(orderId) {
+            const confirmMsg = '确认要帮用户完成提币吗？\n\n系统将自动从用户钱包转账 USDT 到目标地址。';
+            if (!confirm(confirmMsg)) return;
+            
+            const adminPassword = prompt('请输入管理员密码确认操作：');
+            if (!adminPassword) {
+                showModalToast('操作已取消', true);
+                return;
+            }
+            
+            const btn = event.target;
+            const originalText = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = '处理中...';
+            
+            try {
+                const res = await fetch('/api/admin/resolve-abnormal-order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId, adminPassword })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    showModalToast(`✅ ${data.message}`, false);
+                    loadAbnormalOrders();
+                } else {
+                    showModalToast(data.error || '操作失败', true);
+                }
+            } catch(e) {
+                showModalToast('操作失败: ' + e.message, true);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = originalText;
+            }
+        }
+        
+        // 绑定事件
+        document.getElementById('searchAbnormalBtn')?.addEventListener('click', () => {
+            currentAbnormalPage = 1;
+            loadAbnormalOrders();
+        });
+        document.getElementById('refreshAbnormalBtn')?.addEventListener('click', () => {
+            currentAbnormalPage = 1;
+            loadAbnormalOrders();
+        });
+
+// ============= 通告管理 =============
+
+async function loadAnnouncement() {
+  try {
+    const res = await fetch('/api/announcement');
+    const data = await res.json();
+    
+    const contentArea = document.getElementById('announcementContent');
+    const previewDiv = document.getElementById('announcementPreview');
+    const previewContent = document.getElementById('announcementPreviewContent');
+    const previewTime = document.getElementById('announcementPreviewTime');
+    
+    if (data.success && data.hasAnnouncement && data.content) {
+      contentArea.value = data.content;
+      previewContent.innerText = data.content;
+      if (data.updated_at) {
+        previewTime.innerText = '更新时间: ' + new Date(data.updated_at).toLocaleString();
+      }
+      previewDiv.style.display = 'block';
+    } else {
+      contentArea.value = '';
+      previewDiv.style.display = 'none';
+    }
+  } catch(e) {
+    console.error('加载通告失败:', e);
+  }
+}
+
+async function saveAnnouncement() {
+  const content = document.getElementById('announcementContent').value;
+  const resultDiv = document.getElementById('announcementResult');
+  
+  if (!content || !content.trim()) {
+    resultDiv.className = 'result-box error';
+    resultDiv.innerHTML = '⚠️ 请输入通告内容，或点击"删除通告"删除当前通告';
+    resultDiv.classList.remove('hidden');
+    return;
+  }
+  
+  try {
+    const res = await fetch('/api/admin/announcement', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: content.trim() })
+    });
+    const data = await res.json();
+    
+    if (data.success) {
+      resultDiv.className = 'result-box success';
+      resultDiv.innerHTML = '✅ 通告已发布！用户下次登录时会看到。';
+      resultDiv.classList.remove('hidden');
+      loadAnnouncement();
+      showModalToast('✅ 通告已发布', false);
+    } else {
+      resultDiv.className = 'result-box error';
+      resultDiv.innerHTML = '❌ ' + data.error;
+      resultDiv.classList.remove('hidden');
+    }
+  } catch(e) {
+    resultDiv.className = 'result-box error';
+    resultDiv.innerHTML = '❌ 保存失败: ' + e.message;
+    resultDiv.classList.remove('hidden');
+  }
+}
+
+async function deleteAnnouncement() {
+  if (!confirm('确认删除当前通告吗？用户将不再看到此通告。')) return;
+  
+  try {
+    const res = await fetch('/api/admin/announcement', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: '' })
+    });
+    const data = await res.json();
+    
+    if (data.success) {
+      document.getElementById('announcementContent').value = '';
+      document.getElementById('announcementPreview').style.display = 'none';
+      document.getElementById('announcementResult').className = 'result-box success';
+      document.getElementById('announcementResult').innerHTML = '✅ 通告已删除';
+      document.getElementById('announcementResult').classList.remove('hidden');
+      showModalToast('✅ 通告已删除', false);
+    } else {
+      showModalToast(data.error || '删除失败', true);
+    }
+  } catch(e) {
+    showModalToast('删除失败: ' + e.message, true);
+  }
+}
+
+// 绑定事件
+document.addEventListener('DOMContentLoaded', function() {
+  const saveBtn = document.getElementById('saveAnnouncementBtn');
+  const deleteBtn = document.getElementById('deleteAnnouncementBtn');
+  if (saveBtn) saveBtn.addEventListener('click', saveAnnouncement);
+  if (deleteBtn) deleteBtn.addEventListener('click', deleteAnnouncement);
+});
+        
+// ============= 删除用户 =============
+async function deleteUser(userId, userEmail) {
+    // 第一次确认
+    const confirmMsg = `⚠️ 确认要删除用户 ${userEmail} (${userId}) 吗？\n\n此操作将永久删除该用户的所有数据：\n- 用户账号信息\n- 钱包和私钥\n- 交易记录\n- 银行卡信息\n- 客服消息\n- 手续费配置\n- 异常订单\n\n此操作不可恢复！`;
+    if (!confirm(confirmMsg)) return;
+    
+    // 第二次确认
+    if (!confirm(`⚠️⚠️ 再次确认：确定要删除用户 ${userEmail} 吗？`)) return;
+    
+    // 输入管理员密码
+    const adminPassword = prompt('请输入您的管理员密码以确认操作：');
+    if (!adminPassword) {
+        showModalToast('操作已取消', true);
+        return;
+    }
+    
+    try {
+        const res = await fetch('/api/admin/user/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                userId: userId, 
+                adminPassword: adminPassword 
+            })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            showModalToast(`✅ 用户 ${userEmail} 已删除`, false);
+            loadUsers();  // 刷新用户列表
+            loadStats();  // 刷新统计
+        } else {
+            showModalToast(data.error || '删除失败', true);
+        }
+    } catch(e) {
+        showModalToast('删除失败: ' + e.message, true);
+    }
+}
+    // ========== 手动同步 KYC ==========
+document.getElementById('syncKYCBtn')?.addEventListener('click', async function() {
+    if (!confirm('确认手动同步 KYC 状态吗？\n\n系统将查询所有待认证用户的 KYC 状态并自动更新。')) return;
+    
+    const btn = this;
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = '⏳ 同步中...';
+    btn.style.opacity = '0.6';
+    
+    try {
+        const res = await fetch('/api/admin/sync-kyc', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            showModalToast('✅ ' + data.message, false);
+            loadUsers();  // 刷新列表
+        } else {
+            showModalToast('❌ ' + data.message, true);
+        }
+    } catch(e) {
+        showModalToast('❌ 同步失败: ' + e.message, true);
+    } finally {
+        btn.disabled = false;
+        btn.innerText = originalText;
+        btn.style.opacity = '1';
+    }
+});
+        
+    </script>
+</body>
+</html>

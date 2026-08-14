@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <title>PokePay</title>
+    <link rel="icon" type="image/png" href="/favicon.png">  <!-- 添加这一行 -->
+    <link rel="apple-touch-icon" href="/favicon.png">
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="preload" as="image" href="/assets/card-preview-BEM1-lN4.png">
+    <style>
+        /* 加载动画样式 */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        .loading-overlay.hidden {
+            display: none;
+        }
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid #e0e0e0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        .loading-text {
+            margin-top: 16px;
+            font-size: 14px;
+            color: #667eea;
+            font-weight: 500;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        /* 新增：默认隐藏两个页面 */
+        #authPage {
+            display: none;
+        }
+        #appPage {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- 登录/注册页面 -->
+        <div id="authPage">
+            <div style="padding: 40px 20px;">
+                <!-- 替换原来的 Logo 区域 -->
+                <div style="text-align: center; margin-bottom: 40px;">
+                    <!-- Logo 图标和文字 -->
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 8px;">
+                        <!-- Logo 图片 -->
+                        <div style="width: 58px; height: 58px;">
+                            <img src="data:image/png;base64,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" alt="PokePay" style="width: 100%; height: 100%; object-fit: contain;">
+                        </div>
+                        <!-- PokePay 文字 -->
+                        <div style="display: flex; align-items: baseline; gap: 2px;">
+                            <span style="color: #21c592; font-size: 20px; font-weight: 500; letter-spacing: -0.5px;">Poke</span>
+                            <span style="color: #1a1a2e; font-size: 20px; font-weight: 500; letter-spacing: -0.5px;">Pay</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex" style="gap: 12px; margin-bottom: 24px;">
+                    <button id="showLoginBtn" class="tab-btn active" style="flex: 1;">登录</button>
+                    <button id="showRegisterBtn" class="tab-btn" style="flex: 1;">注册</button>
+                </div>
+                
+<div id="loginForm">
+    <div class="input-group">
+        <label class="input-label">邮箱</label>
+        <input type="email" id="loginEmail" class="input-field" placeholder="请输入您的邮箱">
+    </div>
+    <div class="input-group">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <label class="input-label" style="margin-bottom: 0;">密码</label>
+            <a href="#" onclick="showForgotPasswordModal(); return false;" style="color: #21c592; font-size: 13px; text-decoration: none;">忘记密码？</a>
+        </div>
+        <input type="password" id="loginPassword" class="input-field" placeholder="请输入您的登录密码">
+    </div>
+    <button id="doLoginBtn" class="btn btn-primary" style="margin-top: 16px;">登录</button>
+    <div class="text-center mt-4">
+        <a href="#" style="color: var(--accent-blue); text-decoration: none; font-size: 14px;" onclick="showSupportPage(true); return false;">联系客服</a>
+    </div>
+    <!-- 暂时隐藏下载App入口，如需恢复请去掉下面的注释
+    <div style="text-align: center; margin-top: 16px;">
+        <a href="https://download.pokepaycc3.com/poke.apk" 
+           style="color: #21c592; text-decoration: none; font-size: 14px;"
+           target="_blank"
+           rel="noopener noreferrer">
+            点击下载Poke国际App
+        </a>
+    </div>
+    -->
+</div>
+                
+<div id="registerForm" class="hidden">
+    <!-- 邮箱输入（单独一行） -->
+    <div class="input-group">
+        <label class="input-label">邮箱</label>
+        <input type="email" id="regEmail" class="input-field" placeholder="请输入您的邮箱">
+    </div>
+
+    <!-- 验证码 + 获取按钮（同一行） -->
+    <div class="input-group">
+        <label class="input-label">验证码</label>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <input type="text" id="regVerificationCode" class="input-field" placeholder="请输入6位验证码" maxlength="6" inputmode="numeric" style="flex: 1; min-width: 0;">
+            <button id="sendVerificationBtn" style="padding: 10px 16px; white-space: nowrap; font-size: 13px; background: #21c592; color: white; border: none; border-radius: 8px; cursor: pointer; min-width: 100px; flex-shrink: 0;">
+                获取验证码
+            </button>
+        </div>
+        <div id="verificationTip" style="font-size: 12px; color: #888; margin-top: 4px;">验证码有效期10分钟</div>
+    </div>
+    <div class="input-group">
+        <label class="input-label">设置密码</label>
+        <input type="password" id="regPassword" class="input-field" placeholder="创建密码">
+    </div>
+    <div class="input-group">
+        <label class="input-label">确认密码</label>
+        <input type="password" id="regConfirmPassword" class="input-field" placeholder="请再次输入密码">
+    </div>
+    <div class="input-group">
+        <label class="input-label">国际银行编码 <span style="color: #e53e3e;">(必填)</span></label>
+        <input type="text" id="regBankCode" class="input-field" placeholder="请输入银行编码" maxlength="3" inputmode="numeric">
+    </div>
+    <div class="input-group">
+        <label class="input-label">推荐码 <span style="color: #888;">(选填)</span></label>
+        <input type="text" id="regInviteCode" class="input-field" placeholder="请输入推荐码（选填）">
+    </div>
+    <!-- ========== 新增：同意协议 ========== -->
+    <div style="display: flex; align-items: flex-start; gap: 8px; margin: 12px 0;">
+        <input type="checkbox" id="regAgreeTerms" checked style="margin-top: 3px; width: 16px; height: 16px; cursor: pointer; accent-color: #21c592;">
+        <label for="regAgreeTerms" style="font-size: 13px; color: #666; cursor: pointer; line-height: 1.6;">
+            申请即同意PokePay的
+            <a href="/about/privacy-policy.html" target="_blank" style="color: #21c592; text-decoration: none;">《隐私协议》</a>
+            <a href="/about/service-agreement.html" target="_blank" style="color: #21c592; text-decoration: none;">《服务协议》</a>
+        </label>
+    </div>
+    <!-- ========== 新增结束 ========== -->
+    <button id="doRegisterBtn" class="btn btn-primary" style="margin-top: 16px;">注册</button>
+
+</div>
+            </div>
+        </div>
+
+        <!-- 主应用页面 -->
+        <div id="appPage">
+            
+            <div class="main-content" id="tabContent"></div>
+    
+            <div class="bottom-nav">
+                <button class="nav-item active" data-tab="home">
+                    <div class="nav-icon"><i class="iconfont" style="font-size: 24px;">&#xe651;</i></div>
+                    <span>首页</span>
+                </button>
+                <button class="nav-item" data-tab="card">
+                    <div class="nav-icon"><i class="iconfont" style="font-size: 24px;">&#xe627;</i></div>
+                    <span>卡片</span>
+                </button>
+                <button class="nav-item" data-tab="profile">
+                    <div class="nav-icon"><i class="iconfont" style="font-size: 24px;">&#xe66a;</i></div>
+                    <span>我的</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- 隐藏的辅助元素 -->
+        <div id="hasWallet" class="hidden"></div>
+        <div id="noWallet" class="hidden"></div>
+        <div id="walletAddress" class="hidden"></div>
+        <div id="userEmail" class="hidden"></div>
+        <div id="rewardBalance" class="hidden"></div>
+        
+        <!-- 模态框 -->
+        <div id="dynamicModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3></h3>
+                    <button class="modal-close" id="modalClose">×</button>
+                </div>
+                <div id="dynamicModalContent"></div>
+            </div>
+        </div>
+        <div id="modalOverlay" class="modal hidden" style="background: rgba(0,0,0,0.5); z-index: 999;"></div>
+        
+        <!-- 加载动画 -->
+        <div id="loadingOverlay" class="loading-overlay hidden">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">加载中...</div>
+        </div>
+    </div>
+    <!-- 先加载语言包 -->
+    <script src="/js/locales.js"></script>
+    <!-- 再加载 app.js -->
+    <script src="/js/app.js"></script>
+</body>
+</html>

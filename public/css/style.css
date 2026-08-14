@@ -1,0 +1,613 @@
+/* public/css/style.css - 白色主题（复刻 PokePay） */
+
+:root {
+  --bg-primary: #f5f7fa;
+  --bg-secondary: #ffffff;
+  --bg-card: #ffffff;
+  --bg-input: #f0f2f5;
+  --text-primary: #1a1a2e;
+  --text-secondary: #6c757d;
+  --text-muted: #adb5bd;
+  --border-color: #e9ecef;
+  --accent-blue: #21c592;
+  --accent-blue-light: #18a074;
+  --accent-green: #10b981;
+  --accent-red: #ef4444;
+  --accent-orange: #f59e0b;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 容器 */
+.app-container {
+  max-width: 500px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--bg-primary);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 主内容区域 */
+.main-content {
+  flex: 1;
+  padding: 20px 16px;
+  padding-bottom: 80px;
+  overflow-y: auto;
+}
+
+/* 底部导航栏 */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-width: 500px;
+  margin: 0 auto;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-around;
+  padding: 10px 20px 20px;
+  z-index: 100;
+  box-shadow: var(--shadow-sm);
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.2s;
+  padding: 4px 0;
+}
+
+.nav-item.active {
+  color: #21c592;
+}
+
+.nav-icon {
+  font-size: 24px;
+}
+
+/* 卡片样式 */
+.card {
+  background: var(--bg-card);
+  border-radius: 24px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+}
+
+/* 总资产卡片 */
+.asset-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 28px;
+  padding: 24px;
+  margin-bottom: 24px;
+  color: white;
+  box-shadow: var(--shadow-md);
+}
+
+.asset-label {
+  font-size: 14px;
+  opacity: 0.9;
+  margin-bottom: 8px;
+}
+
+.asset-value {
+  font-size: 36px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.asset-sub {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* 功能入口网格 */
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.action-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+}
+
+.action-icon {
+  width: 48px;
+  height: 48px;
+  background: var(--bg-input);
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  transition: transform 0.2s;
+}
+
+.action-item:hover .action-icon {
+  transform: scale(1.05);
+}
+
+.action-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* 卡片展示 */
+.visa-card {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 24px;
+  padding: 20px;
+  margin-bottom: 20px;
+  color: white;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+}
+
+.visa-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -20%;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
+}
+
+.card-brand {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 2px;
+}
+
+.card-chip {
+  font-size: 24px;
+}
+
+.card-number {
+  font-size: 18px;
+  letter-spacing: 2px;
+  margin-bottom: 24px;
+  font-family: monospace;
+}
+
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-expiry {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.card-type {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* 冻结状态 */
+.frozen-badge {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid var(--accent-red);
+  border-radius: 20px;
+  padding: 12px 16px;
+  text-align: center;
+  margin-top: 16px;
+}
+
+.frozen-badge .title {
+  color: var(--accent-red);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.frozen-badge .desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* 资金流水 */
+.flow-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+}
+
+.flow-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.flow-icon {
+  width: 44px;
+  height: 44px;
+  background: var(--bg-input);
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+
+.flow-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.flow-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.flow-time {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.flow-amount {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.flow-amount.positive {
+  color: var(--accent-green);
+}
+
+.flow-amount.negative {
+  color: var(--accent-red);
+}
+
+/* 菜单列表（我的页面） */
+.menu-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  cursor: pointer;
+  background: none;
+  width: 100%;
+  text-align: left;
+  color: var(--text-primary);
+  font-size: 16px;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  border: none;  /* ← 就加这一行 */
+}
+
+.menu-item:focus {
+  outline: none;
+}
+
+.menu-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.menu-icon {
+  font-size: 20px;
+}
+
+.menu-right {
+  color: var(--text-muted);
+  font-size: 16px;
+}
+
+/* 表单样式 */
+.input-group {
+  margin-bottom: 16px;
+}
+
+.input-label {
+  display: block;
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.input-field {
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  color: var(--text-primary);
+  font-size: 16px;
+  transition: border-color 0.2s;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: #21c592;
+  box-shadow: 0 0 0 2px rgba(33, 197, 146, 0.2);
+}
+
+.input-field::placeholder {
+  color: var(--text-muted);
+}
+
+.btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.btn-primary {
+  background: var(--accent-blue);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #18a074;
+}
+
+.btn-secondary {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+/* 模态框 */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-content {
+  background: var(--bg-secondary);
+  border-radius: 24px;
+  padding: 24px;
+  max-width: 400px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-md);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 24px;
+  cursor: pointer;
+}
+
+/* 交易详情 */
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.detail-label {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.detail-value {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  word-break: break-all;
+  text-align: right;
+  max-width: 60%;
+}
+
+.detail-amount {
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+  margin: 16px 0;
+}
+
+.detail-amount.positive {
+  color: var(--accent-green);
+}
+
+.detail-amount.negative {
+  color: var(--accent-red);
+}
+
+/* 邀请码显示 */
+.invite-code-box {
+  background: var(--bg-input);
+  border-radius: 16px;
+  padding: 16px;
+  text-align: center;
+  margin: 16px 0;
+}
+
+.invite-code {
+  font-family: monospace;
+  font-size: 24px;
+  font-weight: bold;
+  letter-spacing: 4px;
+  background: var(--bg-card);
+  padding: 12px;
+  border-radius: 12px;
+  margin: 12px 0;
+}
+
+/* 标签页切换 */
+.tab-header {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 12px;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-btn.active {
+  color: #21c592;
+  border-bottom: 2px solid #21c592;
+}
+
+/* 工具类 */
+.text-center {
+  text-align: center;
+}
+
+.mt-4 {
+  margin-top: 16px;
+}
+
+.mb-4 {
+  margin-bottom: 16px;
+}
+
+.flex {
+  display: flex;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.gap-2 {
+  gap: 8px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* PokePay iconfont 图标库 */
+@font-face {
+  font-family: 'iconfont';
+  src: url('https://at.alicdn.com/t/c/font_4664942_rgkeqi3s8o.woff2?t=1747206968308') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.iconfont {
+  font-family: "iconfont" !important;
+  font-size: 24px;
+  font-style: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 图标定义 */
+.icon-wallet-outline:before {
+  content: "\e67d";
+}
+.icon-card-receive:before {
+  content: "\e62b";
+}
+.icon-card-send:before {
+  content: "\e62a";
+}
+.icon-arrows-down-up:before {
+  content: "\e61b";
+}
+.icon-notification:before {
+  content: "\e665";
+}
+.icon-profile:before {
+    content: "\e66a";
+}
+.icon-gift-outline:before {
+    content: "\e680";
+}
+.icon-globe-outline-new:before {
+    content: "\e686";
+}
+.icon-document-text:before {
+    content: "\e640";
+}
+.icon-settings:before {
+    content: "\e66c";
+}

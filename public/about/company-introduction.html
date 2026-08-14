@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>PokePay - 公司介绍</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+            color: #1a1a2e;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 28px;
+            padding: 28px 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+        }
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: none;
+            border: none;
+            font-size: 16px;
+            color: #3b82f6;
+            cursor: pointer;
+            margin-bottom: 20px;
+            padding: 8px 0;
+            font-weight: 500;
+        }
+        .back-button:active { opacity: 0.7; }
+        h1 { font-size: 26px; margin-bottom: 20px; color: #1a1a2e; font-weight: 700; letter-spacing: -0.3px; }
+        h2 { font-size: 20px; margin: 28px 0 12px; color: #1a1a2e; font-weight: 600; }
+        h3 { font-size: 16px; margin-bottom: 8px; color: #1a1a2e; font-weight: 600; }
+        p { font-size: 15px; line-height: 1.65; color: #4a5568; margin-bottom: 16px; }
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px;
+            margin: 24px 0 16px;
+        }
+        .card {
+            background: #f8fafc;
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid #eef2f6;
+        }
+        .card img {
+            width: 100%;
+            max-width: 280px;
+            border-radius: 12px;
+            margin-top: 12px;
+            border: 1px solid #e2e8f0;
+            background: white;
+        }
+        .footer {
+            text-align: center;
+            padding-top: 28px;
+            margin-top: 28px;
+            border-top: 1px solid #eef2f6;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+        @media (max-width: 600px) {
+            body { padding: 12px; }
+            .container { padding: 20px 16px; }
+            h1 { font-size: 22px; }
+            h2 { font-size: 18px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <button class="back-button" onclick="window.close()">← 返回</button>
+        <h1>公司介绍</h1>
+        
+        <p>先进的加密金融支付平台，专为全球用户设计。平台提供了多元化、多币种的 IBAN 账户系统，支持包括美元在内的多种主流法定货币，以及 USDT、ETH、BTC 等热门加密资产。用户可以通过这些账户进行快速、安全的跨境转账和消费。</p>
+        
+        <p>PokePay 特别注重加密资产和法定货币的无缝整合，为用户提供灵活且高效的资金管理方式。无论是在线上还是线下，用户都可以方便地使用 PokePay 在多种应用场景中进行支付，包括购物、餐饮、旅游、机票、酒店等。此外，平台还提供了多层安全措施，如身份验证和端到端加密，确保用户的资金和个人信息安全。</p>
+        
+        <h2>合规资质</h2>
+        <p>依托于北美 MSB 牌照和符合香港监管要求的架构，为全球用户提供创新的加密金融支付服务。为国际贸易领域的商业客户，以及从事国际贸易的个人客户提供更卓越、更高效的金融收付款服务。</p>
+        
+        <div class="card-grid">
+            <div class="card">
+                <h3>美国 MSB 牌照</h3>
+                <img src="./company-introduction_files/us-msb-license-CmCSGBQ_.jpg" alt="美国 MSB 牌照证照图">
+            </div>
+            <div class="card">
+                <h3>加拿大执照</h3>
+                <img src="./company-introduction_files/canada-license-BdARcd98.jpg" alt="加拿大执照证照图">
+            </div>
+        </div>
+        
+        <h2>平台愿景</h2>
+        <p>PokePay 也致力于提供用户友好的界面和便捷的操作体验，使加密资产的使用和管理变得更加简单易懂。此外，平台还提供了 7x24 小时的专业客户支持，帮助用户解决在使用过程中遇到的任何问题。</p>
+        
+        <p>PokePay Finance Platform 是一个为现代金融生态系统提供全面解决方案的创新平台，适合所有寻求便捷、安全金融服务的个人和企业用户。</p>
+        
+        <div class="footer">PokePay © 2025</div>
+    </div>
+</body>
+</html>

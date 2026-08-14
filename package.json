@@ -1,0 +1,23 @@
+{
+  "name": "tron-membership",
+  "version": "2.0.0",
+  "description": "TRON 会员系统 - 完整版（含能量租赁、港币兑换、邀请奖励）",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "init": "node init.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "sqlite3": "^5.1.6",
+    "bcrypt": "^5.1.1",
+    "tronweb": "^5.2.0",
+    "axios": "^1.6.2",
+    "web-push": "^3.6.0",
+    "form-data": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=18.x"
+  }
+}
