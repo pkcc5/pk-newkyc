@@ -1136,6 +1136,49 @@ async getCardTransactions(cardId, limit = 20) {
     return list.find(item => (item.email || '').toLowerCase() === (email || '').toLowerCase().trim()) || null;
   }
 
+  // ---------- 获取所有已通过 KYC 的用卡人列表（status=2），用于随机绑卡 ==========
+  // 返回所有 status=2（审核通过）且 hold_card_num < 5 的用卡人
+  async getVerifiedKYCListWithAvailableSlots() {
+    const pageSize = 100;
+    let page = 1;
+    let totalPages = 1;
+    const availableKYCs = [];
+
+    while (page <= totalPages) {
+      const url = `https://dash.pokepay.com/api/v1/kyc?limit=${pageSize}&page=${page}&status=2`;
+      const result = await this.requestWithAuth(url, { method: 'GET' });
+      if (result.code !== 200) {
+        throw new Error(result.errstr || '查询 KYC 列表失败');
+      }
+
+      if (page === 1) {
+        totalPages = Math.ceil((result.data.total || 0) / pageSize);
+      }
+
+      // 筛选出持卡数少于 5 张的用卡人
+      const list = result.data.list || [];
+      for (const item of list) {
+        const holdCardNum = item.hold_card_num || 0;
+        if (holdCardNum < 5) {
+          availableKYCs.push({
+            kycId: item.id,
+            email: (item.email || '').toLowerCase(),
+            firstNameEn: item.first_name_en,
+            lastNameEn: item.last_name_en,
+            holdCardNum: holdCardNum
+          });
+        }
+      }
+
+      page++;
+      if (page <= totalPages) {
+        await new Promise(r => setTimeout(r, 100)); // 请求间隔
+      }
+    }
+
+    return availableKYCs;
+  }
+
 }
 
 
@@ -1398,73 +1441,86 @@ async function assignRandomCardToUser(uid, userEmail, kycId) {
     return;
   }
 
+  // ========== 核心修改：从 PokePay 后台所有已实名通过且持卡数<5 的用卡人中随机选择一个 ==========
+  // 注意：这里的 kycId 是刚创建的本用户的 KYC，但我们要绑定到的是后台其他已有的、有空的用卡人
+  let availableKYCs;
   try {
-    const kycDetail = await kycService.getKycDetailV1(kycId);
-    const holdCardNum = kycDetail.hold_card_num || 0;
-    if (holdCardNum >= 5) {
-      console.warn(`⚠️ [随机绑卡] 用户 ${userEmail} 对应的 KYC(${kycId}) 已持有 ${holdCardNum} 张卡，达到5张上限，跳过绑卡`);
-      await markCardBindNeedsReview(uid, `KYC已持有${holdCardNum}张卡，达到5张上限，请人工核实是否需要额外处理`);
-      return;
-    }
+    availableKYCs = await kycService.getVerifiedKYCListWithAvailableSlots();
   } catch (err) {
-    console.error(`查询KYC(${kycId})详情失败，暂不绑卡: ${err.message}`);
-    await markCardBindNeedsReview(uid, `绑卡前查询KYC详情失败：${err.message}`);
+    console.error(`查询可用 KYC 列表失败：${err.message}`);
+    await markCardBindNeedsReview(uid, `查询可用 KYC 列表失败：${err.message}`);
     return;
   }
 
-  // 最多重试几次：库存总数和实际抽到的那一页之间存在极小的并发窗口
-  // （比如刚好被别的请求同时抢走），重试几次基本能覆盖，仍失败就转人工，不无限重试卡住整个处理流程
-  const maxAttempts = 3;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    let total;
-    try {
-      const countRes = await kycService.getCardListV1({ page: 1, limit: 1, withKyc: 1 });
-      total = countRes.total;
-    } catch (err) {
-      console.error(`查询未绑定卡片存量失败: ${err.message}`);
-      await markCardBindNeedsReview(uid, `查询卡片库存失败：${err.message}`);
-      return;
-    }
-
-    if (!total || total <= 0) {
-      console.error(`⚠️ [随机绑卡] 卡片库存为0，用户 ${userEmail} 暂时无法自动绑卡，需要先开卡补充库存`);
-      await markCardBindNeedsReview(uid, '当前无可用的未绑定空白卡库存，请先开卡补充库存后手动绑定');
-      return;
-    }
-
-    const randomIndex = Math.floor(Math.random() * total);
-    let card;
-    try {
-      const pageRes = await kycService.getCardListV1({ page: randomIndex + 1, limit: 1, withKyc: 1 });
-      card = (pageRes.list || [])[0];
-    } catch (err) {
-      console.error(`随机抽取卡片失败(第${attempt}次): ${err.message}`);
-      continue;
-    }
-
-    if (!card || !card.public_token) {
-      console.warn(`⚠️ [随机绑卡] 第${attempt}次抽取到的位置没有卡片（可能和别的请求撞了），重试`);
-      continue;
-    }
-
-    try {
-      await kycService.bindCardOfficial(card.public_token, kycId);
-    } catch (err) {
-      console.error(`绑定卡片(public_token=${card.public_token})失败(第${attempt}次): ${err.message}`);
-      continue;
-    }
-
-    await new Promise((resolve, reject) => {
-      db.run(`UPDATE users SET pokepay_card_id = ?, card_bind_status = 'active', card_bind_note = NULL WHERE uid = ?`,
-        [card.id, uid], (err) => (err ? reject(err) : resolve()));
-    });
-    await sendBindSuccessMessage(uid, userEmail);
-    console.log(`✅ [随机绑卡] 用户 ${userEmail} 随机绑卡成功：card_id=${card.id}, kyc_id=${kycId}`);
+  if (!availableKYCs || availableKYCs.length === 0) {
+    console.error(`⚠️ [绑卡] 没有可用的 KYC 用卡人（所有用卡人均已满 5 张卡或查询失败）`);
+    await markCardBindNeedsReview(uid, '当前没有可用的 KYC 用卡人（均已满 5 张卡），请人工核实');
     return;
   }
 
-  console.error(`❌ [随机绑卡] 用户 ${userEmail} 重试${maxAttempts}次仍未绑卡成功，转人工处理`);
-  await markCardBindNeedsReview(uid, `随机绑卡重试${maxAttempts}次仍未成功，请人工核实并手动绑定`);
+  // 从可用用卡人中随机选择一个
+  const randomIndex = Math.floor(Math.random() * availableKYCs.length);
+  const selectedKYC = availableKYCs[randomIndex];
+  const targetKycId = selectedKYC.kycId;
+  
+  console.log(`🎲 [随机选择用卡人] 从 ${availableKYCs.length} 个可用用卡人中随机选择了 kycId=${targetKycId}, 当前持卡数=${selectedKYC.holdCardNum}`);
+
+  // 从数据库读取用户锁定的卡片 ID（pending_card_id）- 这是用户在前端输入的完整卡号对应的卡片
+  const lockedCard = await new Promise((resolve, reject) => {
+    db.get(`SELECT pending_card_id FROM users WHERE uid = ?`, [uid], (err, row) => (err ? reject(err) : resolve(row)));
+  });
+  
+  if (!lockedCard || !lockedCard.pending_card_id) {
+    console.error(`⚠️ [绑卡失败] 用户 ${userEmail} 没有锁定的卡片记录，无法自动绑卡`);
+    await markCardBindNeedsReview(uid, '未找到用户锁定的卡片记录，请人工核实并手动绑定');
+    return;
+  }
+
+  const cardId = lockedCard.pending_card_id;
+  
+  // 查询卡片详情获取 public_token
+  let cardDetail;
+  try {
+    const cardRes = await kycService.getCardDetail(cardId);
+    cardDetail = cardRes;
+  } catch (err) {
+    console.error(`查询卡片 (card_id=${cardId}) 详情失败：${err.message}`);
+    await markCardBindNeedsReview(uid, `查询卡片详情失败：${err.message}`);
+    return;
+  }
+
+  if (!cardDetail || !cardDetail.publicToken) {
+    console.error(`⚠️ [绑卡失败] 卡片 card_id=${cardId} 没有有效的 public_token`);
+    await markCardBindNeedsReview(uid, '卡片信息异常，缺少 public_token，请人工核实');
+    return;
+  }
+
+  // 再次确认卡片未被绑定（防止在 KYC 审核期间被其他人/系统绑定）
+  if (cardDetail.kycId !== 0) {
+    console.warn(`⚠️ [绑卡失败] 卡片 card_id=${cardId} 已被绑定 (kyc_id=${cardDetail.kycId})，无法再次绑定`);
+    await markCardBindNeedsReview(uid, '卡片已被绑定，请人工核实并重新选择卡片');
+    return;
+  }
+
+  // 调用官方绑卡接口，将用户锁定的这张卡绑定到随机选中的用卡人
+  try {
+    await kycService.bindCardOfficial(cardDetail.publicToken, targetKycId);
+    console.log(`✅ [绑卡成功] 用户 ${userEmail} 的卡片 card_id=${cardId} (public_token=${cardDetail.publicToken}) 已绑定到用卡人 kyc_id=${targetKycId}`);
+  } catch (err) {
+    console.error(`绑定卡片 (card_id=${cardId}) 到用卡人 (kyc_id=${targetKycId}) 失败：${err.message}`);
+    await markCardBindNeedsReview(uid, `绑卡失败：${err.message}`);
+    return;
+  }
+
+  // 更新本地用户状态为已绑定，清空 pending_card_id
+  // 注意：pokepay_card_id 仍然记录用户输入的这张卡的 ID，用于后续查询
+  await new Promise((resolve, reject) => {
+    db.run(`UPDATE users SET pokepay_card_id = ?, card_bind_status = 'active', pending_card_id = NULL, card_bind_note = NULL WHERE uid = ?`,
+      [cardId, uid], (err) => (err ? reject(err) : resolve()));
+  });
+  
+  await sendBindSuccessMessage(uid, userEmail);
+  console.log(`✅ [绑卡完成] 用户 ${userEmail} 的卡片 card_id=${cardId} 已成功绑定到用卡人 kyc_id=${targetKycId}`);
 }
 
 // ========== KYC 同步配置 ==========
@@ -3108,13 +3164,17 @@ app.get('/api/hkd/withdraw-records', (req, res) => {
 
 app.post('/api/kyc/lock-card', async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: '未登录' });
-
-  // ========== 修改：直接要求完整卡号，不再先按后四位查询 ==========
-  // 之前的流程先按后四位查询，后四位重复的情况很多，导致频繁撞号、转人工审核，
-  // 造成大量"绑卡异常"。完整卡号理论上是唯一的，第一次就要完整卡号可以从根上避免撞号。
+  
+  // ========== 流程说明 ==========
+  // 1. 用户在前端输入完整卡号
+  // 2. 验证卡号格式并查询卡片信息（是否已绑卡）
+  // 3. 如果卡片未绑定，仅将本地状态设为 locked，等待用户完成 Didit KYC
+  // 4. 当 Didit KYC 审核通过后（webhook 触发），才执行绑卡逻辑（绑定到用户输入的这张卡）
+  // ============================
+  
   const { fullCardNumber } = req.body;
   if (!fullCardNumber || !/^\d{12,19}$/.test(fullCardNumber)) {
-    return res.status(400).json({ error: '请输入正确的Poke国际卡完整卡号' });
+    return res.status(400).json({ error: '请输入正确的 Poke 国际卡完整卡号' });
   }
   const last4 = fullCardNumber.slice(-4);
 
@@ -3122,7 +3182,7 @@ app.post('/api/kyc/lock-card', async (req, res) => {
 
   try {
     const user = await new Promise((resolve, reject) => {
-      db.get(`SELECT email, card_bind_status FROM users WHERE uid = ?`, [userId],
+      db.get(`SELECT email, card_bind_status, pokepay_card_id FROM users WHERE uid = ?`, [userId],
         (err, row) => err ? reject(err) : resolve(row));
     });
     if (!user) return res.status(404).json({ error: '用户不存在' });
@@ -3138,72 +3198,32 @@ app.post('/api/kyc/lock-card', async (req, res) => {
     try {
       cards = await kycService.searchCardByNumber(fullCardNumber);
     } catch (err) {
-      console.error('查询卡片信息失败:', err.message); // 注意：这里只打印错误信息，不打印卡号本身
+      console.error('查询卡片信息失败:', err.message);
       return res.status(500).json({ error: '卡片信息查询失败，请稍后重试' });
     }
 
     if (!cards || cards.length === 0) {
-      return res.status(400).json({ error: '请输入正确的Poke国际卡卡号' });
+      return res.status(400).json({ error: '请输入正确的 Poke 国际卡卡号' });
     }
     if (cards.length > 1) {
-      // 理论上不应该发生（完整卡号应当唯一），保险起见还是拦截，避免误绑
       console.warn(`⚠️ 完整卡号查询命中了多条记录，异常情况，用户 uid=${userId}`);
       return res.status(400).json({ error: '卡片信息异常，请联系客服协助绑定' });
     }
 
     const card = cards[0];
-
-    // ========== 安全修复：卡号查询接口对 card_no 做的是后四位/模糊匹配，不是完整卡号精确匹配 ==========
-    // （见 KYCService.searchCardByNumber 上方注释："last4或完整卡号都可以传"）。
-    // 也就是说，只要用户提交的"完整卡号"最后4位和某张未绑定的卡一致，即使前面的位数是瞎编的，
-    // 这次查询依然只会命中那一张卡（cards.length === 1），后面的代码此前没有再核对过
-    // 返回卡片的真实完整卡号是否等于用户提交的号码，导致任何人拿一张不相关的卡、
-    // 只要后四位凑巧撞上系统里某张"未绑定"的卡，就能把那张卡绑定到自己名下——
-    // 这正是"输入任意卡号（后四位一致）就能绑定他人未绑卡片"问题的根因。
-    // 注意：dash 接口返回的 card_no 本身是打码的（如 "441353******0140"），不能与明文卡号做
-    // 全等比较（那样会导致正确卡号也被拦截），这里用 cardNoMatchesMasked 只核对未打码的位。
     const returnedCardNo = String(card.card_no ?? card.cardNo ?? '');
     if (!kycService.cardNoMatchesMasked(fullCardNumber, returnedCardNo)) {
-      console.warn(`⚠️ [绑卡安全] 完整卡号不匹配（可能仅后四位命中），已拦截。用户 uid=${userId}`);
-      return res.status(400).json({ error: '请输入正确的Poke国际卡完整卡号' });
+      console.warn(`⚠️ [锁卡安全] 完整卡号不匹配（可能仅后四位命中），已拦截。用户 uid=${userId}`);
+      return res.status(400).json({ error: '请输入正确的 Poke 国际卡完整卡号' });
     }
 
+    // ========== 检查卡片是否已被绑定 ==========
     if (card.kyc_id !== 0) {
-      // ========== 新增：多系统共用同一个 PokePay 账号/KYC 库场景 ==========
-      // 卡已经绑定了，但不一定是"别人"绑的——可能是同一个人（同一邮箱）在别的系统里已经绑过这张卡。
-      // 用当前用户邮箱反查共享 KYC 库拿到的 kycId，如果正好等于卡当前绑定的 kyc_id，
-      // 说明就是本人自己的卡，直接在本地关联即可，不需要（也不应该）再调用 bindCardToMember。
-      // 只有邮箱查不到 KYC 记录、或者 kycId 对不上，才是真正"别人已绑定"的情况。
-      let ownKycRecord = null;
-      try {
-        ownKycRecord = await findVerifiedKYCRecordByEmail(user.email);
-      } catch (err) {
-        console.error('反查 KYC 记录失败:', err.message);
-        return res.status(500).json({ error: '卡片信息查询失败，请稍后重试' });
-      }
-
-      if (ownKycRecord && ownKycRecord.kycId === card.kyc_id) {
-        await new Promise((resolve, reject) => {
-          db.run(
-            `UPDATE users SET pokepay_card_id = ?, card_bind_status = 'active' WHERE uid = ?`,
-            [card.id, userId],
-            (err) => err ? reject(err) : resolve()
-          );
-        });
-        await sendBindSuccessMessage(userId, user.email);
-        console.log(`✅ [跨系统关联] 用户 ${user.email} 已在其他系统绑定此卡，本地直接关联 card_id=${card.id}`);
-        return res.json({ success: true, message: '检测到您已在其他系统绑定该卡，已为您同步关联' });
-      }
-
-      return res.status(400).json({ error: '该卡片已被绑定，如有疑问请联系客服' });
-      // ========== 新增结束 ==========
+      console.warn(`⚠️ [锁卡失败] 卡片 card_id=${card.id} 已被绑定 (kyc_id=${card.kyc_id})，用户 uid=${userId}`);
+      return res.status(400).json({ error: '该卡片已被绑定，请选择其他卡片' });
     }
 
-    // ========== 防抢绑核心检查：这张卡在本地是否已经被"别的账号"占用 ==========
-    // 这里查的是本地数据库，跟 PokePay 侧 kyc_id 是否为0 是两回事：
-    // 可能别的账号已经用同样命中这张卡的信息 lock 住了，只是还没走到真正调用
-    // bindCardToMember 那一步（比如对方 KYC 还没审核完），PokePay 侧看起来仍是"未绑定"，
-    // 但归属权在本地已经有主了，绝不能让第二个账号插队抢先绑定。
+    // ========== 防抢绑检查：确认这张卡没有被其他用户锁定 ==========
     let conflict;
     try {
       conflict = await findConflictingCardClaim(card.id, userId);
@@ -3212,30 +3232,33 @@ app.post('/api/kyc/lock-card', async (req, res) => {
       return res.status(500).json({ error: '卡片信息查询失败，请稍后重试' });
     }
     if (conflict) {
-      console.warn(`⚠️ [绑卡安全/抢绑拦截] 用户 uid=${userId} 尝试锁定的卡片(card_id=${card.id})已被账号 uid=${conflict.uid}(${conflict.email}) 占用(状态=${conflict.card_bind_status})，已拦截`);
-      return res.status(400).json({ error: '卡片信息异常，请联系客服协助绑定' });
+      console.warn(`⚠️ [锁卡安全/抢绑拦截] 用户 uid=${userId} 尝试锁定的卡片 (card_id=${card.id}) 已被账号 uid=${conflict.uid}(${conflict.email}) 占用 (状态=${conflict.card_bind_status})，已拦截`);
+      return res.status(400).json({ error: '卡片信息异常，请联系客服协助绑定', contactSupport: true });
     }
 
-    // 只保存卡片的内部ID和后四位（用于展示/审核），完整卡号到这里为止不再被引用，不会被存进数据库
+    // ========== 仅锁定卡片，暂不绑定！等待 KYC 审核通过后再绑 ==========
     try {
       await new Promise((resolve, reject) => {
         db.run(
-          `UPDATE users SET pending_card_id = ?, pending_card_last4 = ?, card_bind_status = 'locked' WHERE uid = ?`,
-          [card.id, last4, userId],
+          `UPDATE users SET pending_card_id = ?, card_bind_status = 'locked' WHERE uid = ?`,
+          [card.id, userId],
           (err) => err ? reject(err) : resolve()
         );
       });
+      console.log(`✅ [锁卡成功] 用户 uid=${userId} 已锁定卡片 card_id=${card.id} (last4=${last4})，等待 KYC 审核`);
     } catch (err) {
-      // 兜底：如果和上面的应用层检查之间存在极小的并发窗口，靠数据库的局部唯一索引
-      // (idx_users_locked_card_unique) 在写入时兜底拦截，此时 err 会是唯一约束冲突。
-      if (String(err.message || '').includes('UNIQUE constraint failed')) {
-        console.warn(`⚠️ [绑卡安全/抢绑拦截-并发] 用户 uid=${userId} 与他人并发锁定同一张卡(card_id=${card.id})，已拦截`);
-        return res.status(400).json({ error: '卡片信息异常，请联系客服协助绑定' });
-      }
-      throw err;
+      console.error('更新本地用户锁卡状态失败:', err.message);
+      return res.status(500).json({ error: '锁卡操作失败，请稍后重试' });
     }
 
-    res.json({ success: true, message: '卡片信息已提交，请继续完成 KYC 认证' });
+    res.json({ 
+      success: true, 
+      message: '卡片已锁定，请完成 KYC 认证后将自动绑卡',
+      cardInfo: {
+        cardNo: returnedCardNo,
+        last4: last4
+      }
+    });
   } catch (error) {
     console.error('锁定卡片信息失败:', error.message);
     res.status(500).json({ error: error.message });
