@@ -1418,7 +1418,37 @@ async function handleDiditApproved(webhookBody) {
     console.log(`✅ [Didit] 用户 ${user.email} 已在 PokePay 建档成功，kyc_id=${pokepayKycId}`);
   }
 
-  await assignRandomCardToUser(uid, user.email, pokepayKycId);
+  // ========== 优化：绑卡逻辑调整 ==========
+  // 问题：原逻辑直接调用 assignRandomCardToUser，但该函数依赖 pending_card_id 字段，
+  // 而该字段仅在用户输入完整卡号后才设置。如果用户 KYC 通过时还未输入卡号，绑卡会失败。
+  // 
+  // 解决方案：
+  // 1. 如果用户已有 pending_card_id（已输入卡号），立即执行自动绑卡
+  // 2. 如果没有 pending_card_id，标记为"待绑卡"状态，等用户后续输入卡号时再触发绑卡
+  
+  const hasPendingCard = user.pending_card_id !== null && user.pending_card_id !== undefined;
+  
+  if (hasPendingCard) {
+    // 用户已输入卡号，立即执行自动绑卡
+    await assignRandomCardToUser(uid, user.email, pokepayKycId);
+  } else {
+    // 用户尚未输入卡号，更新状态为"待绑卡"，等用户后续输入卡号时再触发
+    console.log(`ℹ️ [Didit] 用户 ${user.email} KYC 已通过但尚未输入卡号，标记为待绑卡状态`);
+    await new Promise((resolve, reject) => {
+      db.run(
+        `UPDATE users SET card_bind_status = 'pending_card_input', didit_session_status = 'Approved' WHERE uid = ?`,
+        [uid],
+        (err) => (err ? reject(err) : resolve())
+      );
+    });
+    // 推送通知提醒用户输入卡号
+    pushNotification(
+      uid,
+      'KYC 认证通过',
+      '您的身份认证已通过！请输入银行卡号完成绑卡。',
+      'system'
+    );
+  }
 }
 
 // 把绑卡状态标成"需要人工处理"，并记录原因，方便客服在后台按这个字段筛出来处理
