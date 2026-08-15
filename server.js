@@ -3145,17 +3145,31 @@ app.post('/api/kyc/lock-card', async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: '未登录' });
   
   // ========== 流程说明 ==========
-  // 1. 用户在前端输入完整卡号和英文姓名
-  // 2. 验证卡号格式并查询卡片信息（是否已绑卡）
-  // 3. 如果卡片未绑定，仅将本地状态设为 locked，等待用户完成 Didit KYC
+  // 1. 用户在前端输入 卡ID + 卡号后4位 + 姓名拼音
+  //    （临时方案：完整卡号查询接口暂时查不出结果，改成用户自己提供卡ID，
+  //     后端只需要核对"这个卡ID对应卡片的后四位"是否与用户填的一致，即可确认这张卡确实是本人的）
+  // 2. 验证卡ID对应的卡片信息，核对后四位是否匹配、是否已被绑定
+  // 3. 如果卡片未绑定，仅将本地状态设为 locked，同时把姓名拼音存成这张卡的本地显示姓名，
+  //    等待用户完成 Didit KYC
   // 4. 当 Didit KYC 审核通过后（webhook 触发），才执行绑卡逻辑（绑定到用户输入的这张卡）
   // ============================
   
-  const { fullCardNumber, firstName, lastName } = req.body;
-  if (!fullCardNumber || !/^\d{12,19}$/.test(fullCardNumber)) {
-    return res.status(400).json({ error: '请输入正确的 Poke 国际卡完整卡号' });
+  const cardIdRaw = req.body.cardId;
+  const last4 = (req.body.last4 || '').trim();
+  const pinyinName = (req.body.pinyinName || '').trim();
+
+  const cardId = parseInt(cardIdRaw, 10);
+  if (!cardIdRaw || !Number.isInteger(cardId) || cardId <= 0) {
+    return res.status(400).json({ error: '请输入正确的卡ID' });
   }
-  const last4 = fullCardNumber.slice(-4);
+  if (!/^\d{4}$/.test(last4)) {
+    return res.status(400).json({ error: '请输入正确的卡号后4位' });
+  }
+  // 姓名拼音校验：允许英文字母/空格/连字符/撇号，1-50 个字符（与 applyCardDisplayNameUpdate 的展示层校验保持宽松一致，
+  // 这里额外要求必须以字母开头，避免纯空格/纯符号之类的脏数据）
+  if (!/^[A-Za-z][A-Za-z\s\-']{0,49}$/.test(pinyinName)) {
+    return res.status(400).json({ error: '请输入正确的姓名拼音（仅支持英文字母，如 ZHANG WEI）' });
+  }
 
   const userId = req.session.userId;
 
@@ -3173,65 +3187,56 @@ app.post('/api/kyc/lock-card', async (req, res) => {
       return res.status(400).json({ error: '您已提交过卡片信息，请等待 KYC 审核完成' });
     }
 
-    let cards;
+    // ========== 用卡ID直接查详情，替代原来按完整卡号搜索（该接口临时不可用）==========
+    let cardDetail;
     try {
-      cards = await kycService.searchCardByNumber(fullCardNumber);
+      cardDetail = await kycService.getCardDetail(cardId);
     } catch (err) {
-      console.error('查询卡片信息失败:', err.message);
-      return res.status(500).json({ error: '卡片信息查询失败，请稍后重试' });
+      console.error(`查询卡片 (card_id=${cardId}) 详情失败:`, err.message);
+      return res.status(400).json({ error: '未找到该卡ID对应的卡片，请核对后重新输入' });
     }
 
-    if (!cards || cards.length === 0) {
-      return res.status(400).json({ error: '请输入正确的 Poke 国际卡卡号' });
-    }
-    if (cards.length > 1) {
-      console.warn(`⚠️ 完整卡号查询命中了多条记录，异常情况，用户 uid=${userId}`);
-      return res.status(400).json({ error: '卡片信息异常，请联系客服协助绑定' });
+    if (!cardDetail || !cardDetail.cardNo) {
+      return res.status(400).json({ error: '未找到该卡ID对应的卡片，请核对后重新输入' });
     }
 
-    const card = cards[0];
-    const returnedCardNo = String(card.card_no ?? card.cardNo ?? '');
-    if (!kycService.cardNoMatchesMasked(fullCardNumber, returnedCardNo)) {
-      console.warn(`⚠️ [锁卡安全] 完整卡号不匹配（可能仅后四位命中），已拦截。用户 uid=${userId}`);
-      return res.status(400).json({ error: '请输入正确的 Poke 国际卡完整卡号' });
+    // ========== 核对卡ID对应卡片的后四位是否与用户填写的一致 ==========
+    const returnedLast4 = String(cardDetail.cardNo).slice(-4);
+    if (returnedLast4 !== last4) {
+      console.warn(`⚠️ [锁卡安全] 卡ID=${cardId} 对应卡片后四位(${returnedLast4})与用户填写的(${last4})不一致，已拦截。用户 uid=${userId}`);
+      return res.status(400).json({ error: '卡ID与卡号后4位不匹配，请核对后重新输入' });
     }
 
     // ========== 检查卡片是否已被绑定 ==========
-    if (card.kyc_id !== 0) {
-      console.warn(`⚠️ [锁卡失败] 卡片 card_id=${card.id} 已被绑定 (kyc_id=${card.kyc_id})，用户 uid=${userId}`);
+    if (cardDetail.kycId !== 0) {
+      console.warn(`⚠️ [锁卡失败] 卡片 card_id=${cardId} 已被绑定 (kyc_id=${cardDetail.kycId})，用户 uid=${userId}`);
       return res.status(400).json({ error: '该卡片已被绑定，请选择其他卡片' });
     }
 
     // ========== 防抢绑检查：确认这张卡没有被其他用户锁定 ==========
     let conflict;
     try {
-      conflict = await findConflictingCardClaim(card.id, userId);
+      conflict = await findConflictingCardClaim(cardId, userId);
     } catch (err) {
       console.error('查询卡片占用状态失败:', err.message);
       return res.status(500).json({ error: '卡片信息查询失败，请稍后重试' });
     }
     if (conflict) {
-      console.warn(`⚠️ [锁卡安全/抢绑拦截] 用户 uid=${userId} 尝试锁定的卡片 (card_id=${card.id}) 已被账号 uid=${conflict.uid}(${conflict.email}) 占用 (状态=${conflict.card_bind_status})，已拦截`);
+      console.warn(`⚠️ [锁卡安全/抢绑拦截] 用户 uid=${userId} 尝试锁定的卡片 (card_id=${cardId}) 已被账号 uid=${conflict.uid}(${conflict.email}) 占用 (状态=${conflict.card_bind_status})，已拦截`);
       return res.status(400).json({ error: '卡片信息异常，请联系客服协助绑定', contactSupport: true });
     }
 
-    // ========== 保存用户输入的英文姓名到 card_display_name ==========
-    let displayName = null;
-    if (firstName && lastName) {
-      displayName = `${firstName.toUpperCase()} ${lastName.toUpperCase()}`.trim();
-      console.log(`用户 ${userId} 提交的卡片显示姓名：${displayName}`);
-    }
-
     // ========== 仅锁定卡片，暂不绑定！等待 KYC 审核通过后再绑 ==========
+    // 姓名拼音同时存成这张卡在本产品里的显示姓名（card_display_name）
     try {
       await new Promise((resolve, reject) => {
         db.run(
           `UPDATE users SET pending_card_id = ?, card_bind_status = 'locked', card_display_name = ? WHERE uid = ?`,
-          [card.id, displayName, userId],
+          [cardId, pinyinName.toUpperCase(), userId],
           (err) => err ? reject(err) : resolve()
         );
       });
-      console.log(`✅ [锁卡成功] 用户 uid=${userId} 已锁定卡片 card_id=${card.id} (last4=${last4})，等待 KYC 审核`);
+      console.log(`✅ [锁卡成功] 用户 uid=${userId} 已锁定卡片 card_id=${cardId} (last4=${last4}, 姓名拼音=${pinyinName})，等待 KYC 审核`);
     } catch (err) {
       console.error('更新本地用户锁卡状态失败:', err.message);
       return res.status(500).json({ error: '锁卡操作失败，请稍后重试' });
@@ -3241,8 +3246,8 @@ app.post('/api/kyc/lock-card', async (req, res) => {
       success: true, 
       message: '卡片已锁定，请完成 KYC 认证后将自动绑卡',
       cardInfo: {
-        cardNo: returnedCardNo,
-        last4: last4
+        cardId,
+        last4
       }
     });
   } catch (error) {
@@ -5065,6 +5070,8 @@ app.post('/api/admin/user/associate-card', async (req, res) => {
 });
 
 // ============= 修改用户卡片显示姓名：共用校验/更新逻辑（网页后台 + Telegram /rename 共用，逻辑保持一致） =============
+// 注：用户自己在 /api/kyc/lock-card 填写的姓名拼音也是写到同一个 card_display_name 字段，
+// 这里（管理员后台/Telegram）只是提供了后续可以覆盖修改的入口，不是唯一写入来源。
 function applyCardDisplayNameUpdate(userId, displayName) {
   return new Promise((resolve) => {
     // 姓名验证（和原来网页后台的校验规则完全一致）
