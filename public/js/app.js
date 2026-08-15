@@ -951,7 +951,9 @@ function showCardNumberModal({ title = '绑定国际卡', subtitle = '请输入�
         <div style="text-align: center; font-size: 16px; font-weight: 600; color: #1a1a2e; margin-bottom: 6px;">${escapeHtml(title)}</div>
         <div style="text-align: center; font-size: 13px; color: #888; margin-bottom: 18px;">${escapeHtml(subtitle)}</div>
 
-        <input id="cardNumberModalInput" type="text" inputmode="numeric" maxlength="19" placeholder="请输入完整卡号" style="width: 100%; box-sizing: border-box; padding: 13px 14px; border: 1.5px solid #e5e7eb; border-radius: 12px; font-size: 16px; letter-spacing: 1px; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='#21c592'" onblur="this.style.borderColor='#e5e7eb'">
+        <input id="cardNumberModalInput" type="text" inputmode="numeric" maxlength="19" placeholder="请输入完整卡号" style="width: 100%; box-sizing: border-box; padding: 13px 14px; border: 1.5px solid #e5e7eb; border-radius: 12px; font-size: 16px; letter-spacing: 1px; outline: none; transition: border-color 0.2s; margin-bottom: 10px;" onfocus="this.style.borderColor='#21c592'" onblur="this.style.borderColor='#e5e7eb'">
+        <input id="cardNameModalFirst" type="text" maxlength="30" placeholder="名 First Name（如 WEI）" style="width: 100%; box-sizing: border-box; padding: 13px 14px; border: 1.5px solid #e5e7eb; border-radius: 12px; font-size: 16px; outline: none; transition: border-color 0.2s; margin-bottom: 10px;" onfocus="this.style.borderColor='#21c592'" onblur="this.style.borderColor='#e5e7eb'">
+        <input id="cardNameModalLast" type="text" maxlength="30" placeholder="姓 Last Name（如 ZHANG）" style="width: 100%; box-sizing: border-box; padding: 13px 14px; border: 1.5px solid #e5e7eb; border-radius: 12px; font-size: 16px; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='#21c592'" onblur="this.style.borderColor='#e5e7eb'">
         <div id="cardNumberModalError" style="color: #ef4444; font-size: 12px; margin-top: 6px; min-height: 16px;"></div>
 
         <div style="margin-top: 16px; display: flex; gap: 10px;">
@@ -965,6 +967,8 @@ function showCardNumberModal({ title = '绑定国际卡', subtitle = '请输入�
 
     const modal = document.getElementById('cardNumberModal');
     const input = document.getElementById('cardNumberModalInput');
+    const firstInput = document.getElementById('cardNameModalFirst');
+    const lastInput = document.getElementById('cardNameModalLast');
     const errorEl = document.getElementById('cardNumberModalError');
     input.focus();
 
@@ -975,15 +979,29 @@ function showCardNumberModal({ title = '绑定国际卡', subtitle = '请输入�
 
     document.getElementById('cardNumberModalClose').onclick = () => cleanup(null);
     document.getElementById('cardNumberModalCancel').onclick = () => cleanup(null);
+    const nameRe = /^[A-Za-z][A-Za-z\s\-']{0,29}$/;
+
     document.getElementById('cardNumberModalConfirm').onclick = () => {
-      const val = input.value.trim();
-      if (!val || !/^\d{12,19}$/.test(val)) {
-        errorEl.textContent = '请输入正确的完整卡号（12-19位数字）';
+      const cardNumber = input.value.trim();
+      const firstName = firstInput.value.trim();
+      const lastName = lastInput.value.trim();
+      if (!cardNumber || !/^\d{12,19}$/.test(cardNumber)) {
+        errorEl.textContent = '请输入正确的完整卡号（12-19 位数字）';
         return;
       }
-      cleanup(val);
+      if (!nameRe.test(firstName) || !nameRe.test(lastName)) {
+        errorEl.textContent = '请填写正确的英文姓名（仅支持英文字母）';
+        return;
+      }
+      cleanup({ cardNumber, firstName, lastName });
     };
     input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') firstInput.focus();
+    });
+    firstInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') lastInput.focus();
+    });
+    lastInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') document.getElementById('cardNumberModalConfirm').click();
     });
     modal.addEventListener('click', (e) => {
@@ -1778,15 +1796,19 @@ async function showKYC() {
     // 之前先要后四位，后四位重复的情况很多，经常撞号、需要二次输入完整卡号，
     // 体验很差还容易出绑卡异常。完整卡号唯一，一次输入即可核实完毕。
     if (!statusData.cardBindStatus) {
-        const fullCardNumber = await showCardNumberModal({
+        const result = await showCardNumberModal({
             title: '绑定国际卡',
-            subtitle: '请输入完整卡号，完成后将跳转 KYC 认证'
+            subtitle: '请输入完整卡号和英文姓名，完成后将跳转 KYC 认证'
         });
-        if (!fullCardNumber) return;
+        if (!result || !result.cardNumber) return;
 
         const lockResult = await fetchAPI('/api/kyc/lock-card', {
             method: 'POST',
-            body: { fullCardNumber }
+            body: { 
+                fullCardNumber: result.cardNumber,
+                firstName: result.firstName,
+                lastName: result.lastName
+            }
         });
 
         if (!lockResult || !lockResult.success) {
@@ -3420,21 +3442,25 @@ function renderSupportMessageContent(msg) {
 
 // ========== 新增：按钮消息 点击处理 ==========
 async function handleBindCardActionClick(btnEl) {
-    const fullCardNumber = await showCardNumberModal({
+    const result = await showCardNumberModal({
         title: '立即绑卡',
-        subtitle: '请输入完整卡号完成绑定'
+        subtitle: '请输入完整卡号和英文姓名完成绑定'
     });
-    if (!fullCardNumber) return;
+    if (!result || !result.cardNumber) return;
     if (btnEl) { btnEl.disabled = true; btnEl.innerText = '核实中...'; }
-    const result = await fetchAPI('/api/kyc/manual-bind-card', {
+    const apiResult = await fetchAPI('/api/kyc/manual-bind-card', {
         method: 'POST',
-        body: { fullCardNumber }
+        body: { 
+            fullCardNumber: result.cardNumber,
+            firstName: result.firstName,
+            lastName: result.lastName
+        }
     });
-    if (result && result.success) {
+    if (apiResult && apiResult.success) {
         alert('绑卡成功！');
         if (btnEl) { btnEl.innerText = '已完成绑卡'; }
     } else {
-        alert(result?.error || '绑卡失败，请重试');
+        alert(apiResult?.error || '绑卡失败，请重试');
         if (btnEl) { btnEl.disabled = false; btnEl.innerText = '立即绑卡'; }
         if (result && result.contactSupport) {
             // 这张卡已被别人绑定 / 卡片信息异常等情况，直接引导联系人工客服
