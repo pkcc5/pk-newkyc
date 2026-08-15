@@ -3145,13 +3145,13 @@ app.post('/api/kyc/lock-card', async (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: '未登录' });
   
   // ========== 流程说明 ==========
-  // 1. 用户在前端输入完整卡号
+  // 1. 用户在前端输入完整卡号和英文姓名
   // 2. 验证卡号格式并查询卡片信息（是否已绑卡）
   // 3. 如果卡片未绑定，仅将本地状态设为 locked，等待用户完成 Didit KYC
   // 4. 当 Didit KYC 审核通过后（webhook 触发），才执行绑卡逻辑（绑定到用户输入的这张卡）
   // ============================
   
-  const { fullCardNumber } = req.body;
+  const { fullCardNumber, firstName, lastName } = req.body;
   if (!fullCardNumber || !/^\d{12,19}$/.test(fullCardNumber)) {
     return res.status(400).json({ error: '请输入正确的 Poke 国际卡完整卡号' });
   }
@@ -3215,12 +3215,19 @@ app.post('/api/kyc/lock-card', async (req, res) => {
       return res.status(400).json({ error: '卡片信息异常，请联系客服协助绑定', contactSupport: true });
     }
 
+    // ========== 保存用户输入的英文姓名到 card_display_name ==========
+    let displayName = null;
+    if (firstName && lastName) {
+      displayName = `${firstName.toUpperCase()} ${lastName.toUpperCase()}`.trim();
+      console.log(`用户 ${userId} 提交的卡片显示姓名：${displayName}`);
+    }
+
     // ========== 仅锁定卡片，暂不绑定！等待 KYC 审核通过后再绑 ==========
     try {
       await new Promise((resolve, reject) => {
         db.run(
-          `UPDATE users SET pending_card_id = ?, card_bind_status = 'locked' WHERE uid = ?`,
-          [card.id, userId],
+          `UPDATE users SET pending_card_id = ?, card_bind_status = 'locked', card_display_name = ? WHERE uid = ?`,
+          [card.id, displayName, userId],
           (err) => err ? reject(err) : resolve()
         );
       });
