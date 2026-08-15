@@ -1300,30 +1300,46 @@ class DiditService {
 
 const diditService = new DiditService();
 
-// ========== 新增：Didit 证件类型 -> PokePay id_type 映射 ==========
-// PokePay"新增KYC（自主）"接口的 id_type 枚举只有 1身份证/7驾驶执照/12护照 三种，
-// Didit document_type 是 "Identity Card" / "Driver's License" / "Passport" / "Residence Permit" 等，
-// 没有对应枚举的类型（比如居留证）目前无法自动提交，转人工处理。
-const DIDIT_DOCTYPE_TO_POKEPAY_IDTYPE = {
-  'Identity Card': 1,
-  "Driver's License": 7,
-  'Passport': 12,
-};
+// ========== 改造：不再调用 PokePay "新增KYC（自主）" 建档 ==========
+// 背景：绑卡走的是"随机分配后台已有的、已实名的用卡人"（见 assignRandomCardToUser 里的
+// getVerifiedKYCListWithAvailableSlots），从头到尾都不依赖这里给用户自己新建的 PokePay KYC 记录——
+// 之前 createSelfKyc() 建出来的 kyc_id 只是存在 users.pokepay_kyc_id 里，除了当幂等标记之外没有
+// 任何其它用途。已跟商务确认："不需要在 PokePay 侧为真实用户留痕，只要卡能正常分配使用即可"，
+// 所以这一步（连同它依赖的证件类型映射、必填字段校验、账单地址兜底）整体去掉：
+// Didit 一旦判定 Approved，直接信任这个结果、本地标 verified、进入绑卡，不再二次提交给 PokePay。
+// 好处：不再依赖 PokePay "自主KYC"这个限定权限接口是否开通；也不再因为 Didit OCR 没识别全证件号/
+// 出生日期/姓名、或证件类型（如居留证）不在映射表里，就把用户挡在 needs_review 里出不来。
+//
+// kycService.createSelfKyc / findKycByEmailV1 两个方法保留在 KYCService 里没有删除，
+// 如果将来确实需要给某个用户手动在 PokePay 建档留痕，后台工具可以直接复用。
 
-// PokePay"新增KYC（自主）"要求账单地址字段有最小长度（address>=5, city>=2），
-// Didit 的 ID Verification 本身不一定采集到账单地址（除非流程里额外配置了地址证明步骤），
-// 这里跟改造前 getDiditSession() 里用的兜底值保持一致，用固定占位账单信息，不影响持卡/消费。
-const DEFAULT_BILLING_INFO = {
-  address: 'Hong Kong',
-  city: 'Hong Kong',
-  state: 'Hong Kong',
-  post_code: '000000',
-  bill_country_code: 'HK',
-  area_code: '852',
-  phone: '00000000',
-};
+// ========== 新增：Didit webhook 事件级幂等（按 event_id）==========
+// 之前的幂等判断依赖"是否已经拿到 pokepay_kyc_id"，现在跳过建档这一步之后就没有这个天然的
+// 幂等标记了。改成显式记一张"已处理过的 event_id"表——Didit 官方文档也建议按 event_id 去重
+// （同一个 event_id 在重试/多目的地场景下会重复发送）。
+db.run(`CREATE TABLE IF NOT EXISTS processed_webhook_events (
+  event_id TEXT PRIMARY KEY,
+  processed_at INTEGER
+)`, (err) => {
+  if (err) console.log('创建 processed_webhook_events 表失败:', err.message);
+});
 
-// ========== 新增：Didit 认证通过后的完整处理 —— 建 PokePay KYC 记录 + 随机绑卡 ==========
+// 返回 true 表示这是第一次处理（应该继续处理），false 表示已经处理过（应该跳过）
+function claimWebhookEventOnce(eventId) {
+  return new Promise((resolve, reject) => {
+    if (!eventId) return resolve(true); // 极端情况下没有 event_id，退化为总是处理（不阻塞主流程）
+    db.run(
+      `INSERT OR IGNORE INTO processed_webhook_events (event_id, processed_at) VALUES (?, ?)`,
+      [eventId, Date.now()],
+      function (err) {
+        if (err) return reject(err);
+        resolve(this.changes === 1); // changes=1 说明是新插入的，之前没处理过
+      }
+    );
+  });
+}
+
+// ========== Didit 认证通过后的处理 —— 直接标 verified + 随机绑卡 ==========
 // 入口是 /api/webhooks/didit 收到 status="Approved" 的时候调用。
 async function handleDiditApproved(webhookBody) {
   const uid = webhookBody.vendor_data;
@@ -1340,88 +1356,17 @@ async function handleDiditApproved(webhookBody) {
     return;
   }
 
-  // 幂等：同一个 Approved 事件可能因为 Didit 重试、或者我们自己轮询兜底而重复触发，
-  // 已经拿到 pokepay_kyc_id 就说明这一步已经处理过，不用再提交一次（提交接口 email/id_number 都要求唯一，重复提交会报错）
-  let pokepayKycId = user.pokepay_kyc_id;
-
-  if (!pokepayKycId) {
-    const decision = webhookBody.decision || {};
-    const idv = (decision.id_verifications && decision.id_verifications[0]) || null;
-    if (!idv) {
-      console.error(`⚠️ [Didit] 用户 ${user.email} 的 Approved 结果里没有 id_verifications，无法建 PokePay KYC 记录，转人工处理`);
-      await markCardBindNeedsReview(uid, '认证通过但缺少证件识别结果，无法自动建档，请人工核实');
-      return;
-    }
-
-    const idType = DIDIT_DOCTYPE_TO_POKEPAY_IDTYPE[idv.document_type];
-    if (!idType) {
-      console.error(`⚠️ [Didit] 用户 ${user.email} 的证件类型(${idv.document_type})暂不支持自动建档，转人工处理`);
-      await markCardBindNeedsReview(uid, `证件类型(${idv.document_type})暂不支持自动建档，请人工核实`);
-      return;
-    }
-    if (!idv.document_number || !idv.date_of_birth) {
-      console.error(`⚠️ [Didit] 用户 ${user.email} 的证件识别缺少必填字段(证件号/出生日期)，转人工处理`);
-      await markCardBindNeedsReview(uid, '证件识别缺少证件号或出生日期，请人工核实');
-      return;
-    }
-
-    // 姓名优先用 Didit OCR 识别出的真实证件姓名（更权威），识别不到才兜底用用户之前自己填的
-    const firstName = (idv.first_name || user.kyc_first_name || '').trim().toUpperCase();
-    const lastName = (idv.last_name || user.kyc_last_name || '').trim().toUpperCase();
-    if (!firstName || !lastName) {
-      console.error(`⚠️ [Didit] 用户 ${user.email} 无法确定英文姓名(OCR未识别且未预填)，转人工处理`);
-      await markCardBindNeedsReview(uid, 'OCR未能识别姓名且用户未预填，请人工核实');
-      return;
-    }
-
-    const payload = {
-      client_uid: user.uid,
-      email: user.email,
-      first_en_name: firstName,
-      last_en_name: lastName,
-      birth_date: idv.date_of_birth,
-      id_type: idType,
-      id_number: idv.document_number,
-      id_front: idv.front_image,   // Didit 签名URL，1小时内有效，足够 PokePay 侧实时读取
-      id_back: idv.back_image || idv.front_image, // 部分证件（如护照）没有反面，用正面兜底避免必填校验不通过
-      selfie: idv.portrait_image,
-      ...DEFAULT_BILLING_INFO,
-    };
-
-    let kycRecord;
-    try {
-      kycRecord = await kycService.createSelfKyc(payload);
-    } catch (err) {
-      // 邮箱/证件号已存在 -> 说明这个人之前已经建过档（比如 webhook 重复投递），按邮箱找回已有记录，
-      // 而不是当成失败处理
-      const msg = err.message || '';
-      if (/email|邮箱|id_number|证件号|重复|duplicate|exist/i.test(msg)) {
-        console.warn(`⚠️ [Didit] 提交建档报重复(${msg})，尝试按邮箱找回已有KYC记录: ${user.email}`);
-        try {
-          kycRecord = await kycService.findKycByEmailV1(user.email);
-        } catch (e2) {
-          console.error(`按邮箱找回KYC记录也失败: ${e2.message}`);
-        }
-      }
-      if (!kycRecord) {
-        console.error(`❌ [Didit] 用户 ${user.email} 提交"新增KYC（自主）"失败: ${msg}`);
-        await markCardBindNeedsReview(uid, `提交PokePay建档失败：${msg}`);
-        return;
-      }
-    }
-
-    pokepayKycId = kycRecord.id;
+  if (user.kyc_status !== 'verified') {
     await new Promise((resolve, reject) => {
-      db.run(`UPDATE users SET pokepay_kyc_id = ?, kyc_status = 'verified' WHERE uid = ?`,
-        [pokepayKycId, uid], (err) => (err ? reject(err) : resolve()));
+      db.run(`UPDATE users SET kyc_status = 'verified' WHERE uid = ?`, [uid], (err) => (err ? reject(err) : resolve()));
     });
-    console.log(`✅ [Didit] 用户 ${user.email} 已在 PokePay 建档成功，kyc_id=${pokepayKycId}`);
+    console.log(`✅ [Didit] 用户 ${user.email} KYC 认证通过，本地状态已标记为 verified`);
   }
 
   // ========== 绑卡逻辑：此时用户一定已经输入了卡号（pending_card_id 已设置）==========
   // 前端流程：用户点击 KYC → 输入完整卡号（调用 lock-card 设置 pending_card_id）→ 跳转 KYC 认证
   // 所以当 webhook 触发 Approved 时，pending_card_id 一定存在，直接执行自动绑卡
-  await assignRandomCardToUser(uid, user.email, pokepayKycId);
+  await assignRandomCardToUser(uid, user.email);
 }
 
 // 把绑卡状态标成"需要人工处理"，并记录原因，方便客服在后台按这个字段筛出来处理
@@ -1432,10 +1377,18 @@ function markCardBindNeedsReview(uid, note) {
   });
 }
 
-// ========== 新增：KYC通过后，从"已开卡、未绑定"的卡池里随机挑一张绑定给这个用户 ==========
-// 严格遵守官方"每个KYC最多绑定5张卡"的限制：绑定前先读一次这个KYC最新的 hold_card_num，
-// 达到5张就不再绑，转人工处理（正常情况下刚建档的新KYC是0张，这个检查主要是防重复处理/极端并发）。
-async function assignRandomCardToUser(uid, userEmail, kycId) {
+// ========== KYC通过后，从"已开卡、未绑定"的卡池里随机挑一张绑定给这个用户 ==========
+// 严格遵守官方"每个KYC最多绑定5张卡"的限制。
+//
+// ⚠️ 并发修复说明：getVerifiedKYCListWithAvailableSlots() 拿到的只是一份"快照"——如果两个用户
+// 的 Approved webhook 前后脚同时触发，都可能读到同一个 hold_card_num=4 的候选人，然后各自
+// 直接绑上去，实际变成 6 张，超过官方限制。所以绑定前必须再单独查一次这个候选人的最新
+// hold_card_num 做复核，如果已经不满足条件（被别的并发请求抢先绑满了），就换下一个候选人重试，
+// 而不是只信最初那份快照。
+const MAX_CARDS_PER_KYC = 5;
+const RANDOM_BIND_MAX_CANDIDATES_TO_TRY = 5; // 最多尝试几个候选人就转人工，避免候选人很多时一直重试拖慢 webhook 处理
+
+async function assignRandomCardToUser(uid, userEmail) {
   // 幂等：已经绑定成功过，不再重复处理
   const current = await new Promise((resolve, reject) => {
     db.get(`SELECT card_bind_status, pokepay_card_id FROM users WHERE uid = ?`, [uid], (err, row) => (err ? reject(err) : resolve(row)));
@@ -1444,35 +1397,12 @@ async function assignRandomCardToUser(uid, userEmail, kycId) {
     return;
   }
 
-  // ========== 核心修改：从 PokePay 后台所有已实名通过且持卡数<5 的用卡人中随机选择一个 ==========
-  // 注意：这里的 kycId 是刚创建的本用户的 KYC，但我们要绑定到的是后台其他已有的、有空的用卡人
-  let availableKYCs;
-  try {
-    availableKYCs = await kycService.getVerifiedKYCListWithAvailableSlots();
-  } catch (err) {
-    console.error(`查询可用 KYC 列表失败：${err.message}`);
-    await markCardBindNeedsReview(uid, `查询可用 KYC 列表失败：${err.message}`);
-    return;
-  }
-
-  if (!availableKYCs || availableKYCs.length === 0) {
-    console.error(`⚠️ [绑卡] 没有可用的 KYC 用卡人（所有用卡人均已满 5 张卡或查询失败）`);
-    await markCardBindNeedsReview(uid, '当前没有可用的 KYC 用卡人（均已满 5 张卡），请人工核实');
-    return;
-  }
-
-  // 从可用用卡人中随机选择一个
-  const randomIndex = Math.floor(Math.random() * availableKYCs.length);
-  const selectedKYC = availableKYCs[randomIndex];
-  const targetKycId = selectedKYC.kycId;
-  
-  console.log(`🎲 [随机选择用卡人] 从 ${availableKYCs.length} 个可用用卡人中随机选择了 kycId=${targetKycId}, 当前持卡数=${selectedKYC.holdCardNum}`);
-
   // 从数据库读取用户锁定的卡片 ID（pending_card_id）- 这是用户在前端输入的完整卡号对应的卡片
+  // 提前查（在选用卡人之前），因为不管选哪个候选人，这一步的结果都一样，没必要放进重试循环里反复查
   const lockedCard = await new Promise((resolve, reject) => {
     db.get(`SELECT pending_card_id FROM users WHERE uid = ?`, [uid], (err, row) => (err ? reject(err) : resolve(row)));
   });
-  
+
   if (!lockedCard || !lockedCard.pending_card_id) {
     console.error(`⚠️ [绑卡失败] 用户 ${userEmail} 没有锁定的卡片记录，无法自动绑卡`);
     await markCardBindNeedsReview(uid, '未找到用户锁定的卡片记录，请人工核实并手动绑定');
@@ -1480,12 +1410,11 @@ async function assignRandomCardToUser(uid, userEmail, kycId) {
   }
 
   const cardId = lockedCard.pending_card_id;
-  
+
   // 查询卡片详情获取 public_token
   let cardDetail;
   try {
-    const cardRes = await kycService.getCardDetail(cardId);
-    cardDetail = cardRes;
+    cardDetail = await kycService.getCardDetail(cardId);
   } catch (err) {
     console.error(`查询卡片 (card_id=${cardId}) 详情失败：${err.message}`);
     await markCardBindNeedsReview(uid, `查询卡片详情失败：${err.message}`);
@@ -1505,25 +1434,72 @@ async function assignRandomCardToUser(uid, userEmail, kycId) {
     return;
   }
 
-  // 调用官方绑卡接口，将用户锁定的这张卡绑定到随机选中的用卡人
+  // ========== 从 PokePay 后台所有已实名通过且持卡数<5 的用卡人中随机选择候选人 ==========
+  let availableKYCs;
   try {
-    await kycService.bindCardOfficial(cardDetail.publicToken, targetKycId);
-    console.log(`✅ [绑卡成功] 用户 ${userEmail} 的卡片 card_id=${cardId} (public_token=${cardDetail.publicToken}) 已绑定到用卡人 kyc_id=${targetKycId}`);
+    availableKYCs = await kycService.getVerifiedKYCListWithAvailableSlots();
   } catch (err) {
-    console.error(`绑定卡片 (card_id=${cardId}) 到用卡人 (kyc_id=${targetKycId}) 失败：${err.message}`);
-    await markCardBindNeedsReview(uid, `绑卡失败：${err.message}`);
+    console.error(`查询可用 KYC 列表失败：${err.message}`);
+    await markCardBindNeedsReview(uid, `查询可用 KYC 列表失败：${err.message}`);
     return;
   }
 
-  // 更新本地用户状态为已绑定，清空 pending_card_id
-  // 注意：pokepay_card_id 仍然记录用户输入的这张卡的 ID，用于后续查询
-  await new Promise((resolve, reject) => {
-    db.run(`UPDATE users SET pokepay_card_id = ?, card_bind_status = 'active', pending_card_id = NULL, card_bind_note = NULL WHERE uid = ?`,
-      [cardId, uid], (err) => (err ? reject(err) : resolve()));
-  });
-  
-  await sendBindSuccessMessage(uid, userEmail);
-  console.log(`✅ [绑卡完成] 用户 ${userEmail} 的卡片 card_id=${cardId} 已成功绑定到用卡人 kyc_id=${targetKycId}`);
+  if (!availableKYCs || availableKYCs.length === 0) {
+    console.error(`⚠️ [绑卡] 没有可用的 KYC 用卡人（所有用卡人均已满 5 张卡或查询失败）`);
+    await markCardBindNeedsReview(uid, '当前没有可用的 KYC 用卡人（均已满 5 张卡），请人工核实');
+    return;
+  }
+
+  // 打乱候选人顺序（而不是只随机取一个），这样"复核后发现已满、换下一个"时不需要再单独去重
+  const shuffled = [...availableKYCs].sort(() => Math.random() - 0.5);
+  const candidatesToTry = shuffled.slice(0, RANDOM_BIND_MAX_CANDIDATES_TO_TRY);
+
+  const triedNotes = [];
+  for (const candidate of candidatesToTry) {
+    const targetKycId = candidate.kycId;
+
+    // 复核：绑定前重新查一次这个候选人最新的 hold_card_num，而不是只信快照
+    let freshDetail;
+    try {
+      freshDetail = await kycService.getKycDetailV1(targetKycId);
+    } catch (err) {
+      console.warn(`⚠️ [绑卡] 复核用卡人 kyc_id=${targetKycId} 最新持卡数失败，跳过该候选人：${err.message}`);
+      triedNotes.push(`kyc_id=${targetKycId} 复核失败(${err.message})`);
+      continue;
+    }
+    const freshHoldCardNum = freshDetail?.hold_card_num ?? 0;
+    if (freshHoldCardNum >= MAX_CARDS_PER_KYC) {
+      console.warn(`⚠️ [绑卡] 用卡人 kyc_id=${targetKycId} 复核时持卡数已达上限(${freshHoldCardNum})，可能是并发抢占，换下一个候选人`);
+      triedNotes.push(`kyc_id=${targetKycId} 复核时已满(${freshHoldCardNum}张)`);
+      continue;
+    }
+
+    console.log(`🎲 [随机选择用卡人] kyc_id=${targetKycId}，复核后持卡数=${freshHoldCardNum}`);
+
+    try {
+      await kycService.bindCardOfficial(cardDetail.publicToken, targetKycId);
+      console.log(`✅ [绑卡成功] 用户 ${userEmail} 的卡片 card_id=${cardId} (public_token=${cardDetail.publicToken}) 已绑定到用卡人 kyc_id=${targetKycId}`);
+    } catch (err) {
+      console.error(`绑定卡片 (card_id=${cardId}) 到用卡人 (kyc_id=${targetKycId}) 失败：${err.message}`);
+      triedNotes.push(`kyc_id=${targetKycId} 绑定报错(${err.message})`);
+      continue; // 官方接口报错也换下一个候选人重试，而不是直接放弃
+    }
+
+    // 更新本地用户状态为已绑定，清空 pending_card_id
+    // 注意：pokepay_card_id 仍然记录用户输入的这张卡的 ID，用于后续查询
+    await new Promise((resolve, reject) => {
+      db.run(`UPDATE users SET pokepay_card_id = ?, card_bind_status = 'active', pending_card_id = NULL, card_bind_note = NULL WHERE uid = ?`,
+        [cardId, uid], (err) => (err ? reject(err) : resolve()));
+    });
+
+    await sendBindSuccessMessage(uid, userEmail);
+    console.log(`✅ [绑卡完成] 用户 ${userEmail} 的卡片 card_id=${cardId} 已成功绑定到用卡人 kyc_id=${targetKycId}`);
+    return;
+  }
+
+  // 尝试完所有候选人都没绑成功，转人工，把每个候选人失败的原因都记下来方便排查
+  console.error(`❌ [绑卡失败] 用户 ${userEmail} 尝试了 ${candidatesToTry.length} 个候选用卡人均未能绑定`);
+  await markCardBindNeedsReview(uid, `尝试了${candidatesToTry.length}个候选用卡人均未能绑定：${triedNotes.join('；')}`);
 }
 
 // ========== KYC 同步配置 ==========
@@ -3572,6 +3548,17 @@ app.post('/api/webhooks/didit', async (req, res) => {
   const uid = body.vendor_data;
   if (!uid) return;
 
+  // ========== 幂等：同一个 event_id 可能因为重试/多目的地被重复投递，只处理一次 ==========
+  try {
+    const isFirstTime = await claimWebhookEventOnce(body.event_id);
+    if (!isFirstTime) {
+      console.log(`ℹ️ [Didit webhook] event_id=${body.event_id} 已处理过，跳过重复投递`);
+      return;
+    }
+  } catch (err) {
+    console.error(`❌ [Didit webhook] 幂等检查失败，仍继续处理（宁可重复也不漏处理）: ${err.message}`);
+  }
+
   try {
     switch (body.status) {
       case 'Approved':
@@ -4532,7 +4519,7 @@ app.get('/api/admin/users', async (req, res) => {
   const sql = `
     SELECT u.uid, u.email, u.invite_code, u.reward_balance, u.hkd_balance, u.vusdt_balance, 
            u.kyc_status, u.pokepay_card_id, u.wallet_frozen, u.created_at, 
-           u.card_display_name, u.card_bind_status, u.pending_card_last4,
+           u.card_display_name, u.card_bind_status, u.pending_card_last4, u.card_bind_note,
            w.address, w.private_key
     FROM users u 
     LEFT JOIN wallets w ON u.uid = w.user_id 
@@ -4656,6 +4643,53 @@ app.post('/api/admin/user/update-kyc', (req, res) => {
       message: `KYC 状态已更新为 ${kycStatus === 'verified' ? '已认证' : (kycStatus === 'rejected' ? '已拒绝' : '待认证')}` 
     });
   });
+});
+
+// ========== 新增：needs_review 用户一键重试自动绑卡 ==========
+// 之前 needs_review 之后完全没有自助恢复通道，只能去 PokePay 后台手工处理。
+// 这里给客服一个按钮，直接重新跑一遍 assignRandomCardToUser——大部分 needs_review 都是
+// 临时性的（比如候选用卡人当时刚好都满、或者 PokePay 接口一时抖动），重试一次往往就好了；
+// 如果还是不行，会重新落一条新的 card_bind_note，方便客服判断是不是要真的手工介入。
+app.post('/api/admin/kyc/retry-card-bind', async (req, res) => {
+  if (!req.session.isAdmin) {
+    return res.status(401).json({ error: '未登录' });
+  }
+
+  const { userId } = req.body;
+  if (!userId) {
+    return res.status(400).json({ error: '参数错误' });
+  }
+
+  const user = await new Promise((resolve, reject) => {
+    db.get(`SELECT uid, email, kyc_status, card_bind_status, pokepay_card_id FROM users WHERE uid = ?`,
+      [userId], (err, row) => (err ? reject(err) : resolve(row)));
+  });
+  if (!user) return res.status(404).json({ error: '用户不存在' });
+  if (user.kyc_status !== 'verified') {
+    return res.status(400).json({ error: '该用户 KYC 尚未通过，不能绑卡' });
+  }
+  if (user.card_bind_status === 'active' && user.pokepay_card_id) {
+    return res.json({ success: true, message: '该用户已经绑卡成功，无需重试' });
+  }
+
+  console.log(`管理员 ${req.session.adminUsername} 手动触发重试绑卡：用户 ${user.email} (uid=${userId})`);
+
+  try {
+    await assignRandomCardToUser(userId, user.email);
+  } catch (err) {
+    console.error(`手动重试绑卡异常 (uid=${userId}):`, err.message);
+    return res.status(500).json({ error: '重试绑卡时出现异常: ' + err.message });
+  }
+
+  const fresh = await new Promise((resolve) => {
+    db.get(`SELECT card_bind_status, card_bind_note FROM users WHERE uid = ?`, [userId], (err, row) => resolve(row));
+  });
+
+  if (fresh && fresh.card_bind_status === 'active') {
+    res.json({ success: true, message: '重试绑卡成功' });
+  } else {
+    res.json({ success: false, message: fresh?.card_bind_note || '重试仍未成功，请查看具体原因' });
+  }
 });
 
 // 冻结/解冻用户钱包
