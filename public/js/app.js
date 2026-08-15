@@ -951,9 +951,7 @@ function showCardNumberModal({ title = '绑定国际卡', subtitle = '请输入�
         <div style="text-align: center; font-size: 16px; font-weight: 600; color: #1a1a2e; margin-bottom: 6px;">${escapeHtml(title)}</div>
         <div style="text-align: center; font-size: 13px; color: #888; margin-bottom: 18px;">${escapeHtml(subtitle)}</div>
 
-        <input id="cardNumberModalInput" type="text" inputmode="numeric" maxlength="19" placeholder="请输入完整卡号" style="width: 100%; box-sizing: border-box; padding: 13px 14px; border: 1.5px solid #e5e7eb; border-radius: 12px; font-size: 16px; letter-spacing: 1px; outline: none; transition: border-color 0.2s; margin-bottom: 10px;" onfocus="this.style.borderColor='#21c592'" onblur="this.style.borderColor='#e5e7eb'">
-        <input id="cardNameModalFirst" type="text" maxlength="30" placeholder="名 First Name（如 WEI）" style="width: 100%; box-sizing: border-box; padding: 13px 14px; border: 1.5px solid #e5e7eb; border-radius: 12px; font-size: 16px; outline: none; transition: border-color 0.2s; margin-bottom: 10px;" onfocus="this.style.borderColor='#21c592'" onblur="this.style.borderColor='#e5e7eb'">
-        <input id="cardNameModalLast" type="text" maxlength="30" placeholder="姓 Last Name（如 ZHANG）" style="width: 100%; box-sizing: border-box; padding: 13px 14px; border: 1.5px solid #e5e7eb; border-radius: 12px; font-size: 16px; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='#21c592'" onblur="this.style.borderColor='#e5e7eb'">
+        <input id="cardNumberModalInput" type="text" inputmode="numeric" maxlength="19" placeholder="请输入完整卡号" style="width: 100%; box-sizing: border-box; padding: 13px 14px; border: 1.5px solid #e5e7eb; border-radius: 12px; font-size: 16px; letter-spacing: 1px; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='#21c592'" onblur="this.style.borderColor='#e5e7eb'">
         <div id="cardNumberModalError" style="color: #ef4444; font-size: 12px; margin-top: 6px; min-height: 16px;"></div>
 
         <div style="margin-top: 16px; display: flex; gap: 10px;">
@@ -967,8 +965,6 @@ function showCardNumberModal({ title = '绑定国际卡', subtitle = '请输入�
 
     const modal = document.getElementById('cardNumberModal');
     const input = document.getElementById('cardNumberModalInput');
-    const firstInput = document.getElementById('cardNameModalFirst');
-    const lastInput = document.getElementById('cardNameModalLast');
     const errorEl = document.getElementById('cardNumberModalError');
     input.focus();
 
@@ -979,30 +975,96 @@ function showCardNumberModal({ title = '绑定国际卡', subtitle = '请输入�
 
     document.getElementById('cardNumberModalClose').onclick = () => cleanup(null);
     document.getElementById('cardNumberModalCancel').onclick = () => cleanup(null);
-    const nameRe = /^[A-Za-z][A-Za-z\s\-']{0,29}$/;
-
     document.getElementById('cardNumberModalConfirm').onclick = () => {
-      const cardNumber = input.value.trim();
-      const firstName = firstInput.value.trim();
-      const lastName = lastInput.value.trim();
-      if (!cardNumber || !/^\d{12,19}$/.test(cardNumber)) {
-        errorEl.textContent = '请输入正确的完整卡号（12-19 位数字）';
+      const val = input.value.trim();
+      if (!val || !/^\d{12,19}$/.test(val)) {
+        errorEl.textContent = '请输入正确的完整卡号（12-19位数字）';
         return;
       }
-      if (!nameRe.test(firstName) || !nameRe.test(lastName)) {
-        errorEl.textContent = '请填写正确的英文姓名（仅支持英文字母）';
-        return;
-      }
-      cleanup({ cardNumber, firstName, lastName });
+      cleanup(val);
     };
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') firstInput.focus();
-    });
-    firstInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') lastInput.focus();
-    });
-    lastInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') document.getElementById('cardNumberModalConfirm').click();
+    });
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) cleanup(null);
+    });
+  });
+}
+
+// ========== 新增：完整卡号查询接口暂时查不出来，临时改为让用户自己填 卡ID + 卡号后4位 + 姓名拼音 ==========
+// 后端会核对"卡ID对应卡片的后四位"是否与用户填的后四位一致，一致才放行进入 KYC；
+// 姓名拼音同时作为这张卡在本产品里显示的持卡人姓名（Didit KYC 本身不再参与这个环节，见后端注释）。
+function showCardBindInputModal({ title = '绑定国际卡', subtitle = '请填写卡片信息，完成后将跳转 KYC 认证' } = {}) {
+  return new Promise((resolve) => {
+    const existing = document.getElementById('cardBindInputModal');
+    if (existing) existing.remove();
+
+    const modalHtml = `
+    <div id="cardBindInputModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 99999;">
+      <div style="background: white; border-radius: 24px; max-width: 400px; width: 88%; padding: 28px 24px 24px; position: relative; box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: fadeIn 0.3s ease;">
+        <button id="cardBindInputModalClose" style="position: absolute; top: 12px; right: 16px; background: none; border: none; font-size: 22px; color: #999; cursor: pointer; padding: 4px 8px; border-radius: 50%; transition: background 0.2s;" onmouseover="this.style.background='#f0f0f0'" onmouseout="this.style.background='transparent'">×</button>
+
+        <div style="text-align: center; margin-bottom: 12px;">
+          <span style="font-size: 24px; font-weight: 700; color: #21c592;">Poke</span>
+          <span style="font-size: 24px; font-weight: 700; color: #1a1a2e;">Pay</span>
+        </div>
+        <div style="border-top: 2px solid #21c592; width: 50px; margin: 0 auto 16px;"></div>
+
+        <div style="text-align: center; font-size: 16px; font-weight: 600; color: #1a1a2e; margin-bottom: 6px;">${escapeHtml(title)}</div>
+        <div style="text-align: center; font-size: 13px; color: #888; margin-bottom: 18px;">${escapeHtml(subtitle)}</div>
+
+        <input id="cardBindInputCardId" type="text" inputmode="numeric" maxlength="20" placeholder="卡ID" style="width: 100%; box-sizing: border-box; padding: 13px 14px; border: 1.5px solid #e5e7eb; border-radius: 12px; font-size: 16px; outline: none; transition: border-color 0.2s; margin-bottom: 10px;" onfocus="this.style.borderColor='#21c592'" onblur="this.style.borderColor='#e5e7eb'">
+        <input id="cardBindInputLast4" type="text" inputmode="numeric" maxlength="4" placeholder="卡号后4位" style="width: 100%; box-sizing: border-box; padding: 13px 14px; border: 1.5px solid #e5e7eb; border-radius: 12px; font-size: 16px; letter-spacing: 2px; outline: none; transition: border-color 0.2s; margin-bottom: 10px;" onfocus="this.style.borderColor='#21c592'" onblur="this.style.borderColor='#e5e7eb'">
+        <input id="cardBindInputName" type="text" maxlength="50" placeholder="姓名拼音（如 ZHANG WEI）" style="width: 100%; box-sizing: border-box; padding: 13px 14px; border: 1.5px solid #e5e7eb; border-radius: 12px; font-size: 16px; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='#21c592'" onblur="this.style.borderColor='#e5e7eb'">
+        <div id="cardBindInputError" style="color: #ef4444; font-size: 12px; margin-top: 6px; min-height: 16px;"></div>
+
+        <div style="margin-top: 16px; display: flex; gap: 10px;">
+          <button id="cardBindInputCancel" style="flex: 1; background: #f0f2f5; color: #666; border: none; border-radius: 12px; padding: 12px 0; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#e5e7eb'" onmouseout="this.style.background='#f0f2f5'">取消</button>
+          <button id="cardBindInputConfirm" style="flex: 1; background: #21c592; color: white; border: none; border-radius: 12px; padding: 12px 0; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#1aad7a'" onmouseout="this.style.background='#21c592'">确认</button>
+        </div>
+      </div>
+    </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+    const modal = document.getElementById('cardBindInputModal');
+    const cardIdInput = document.getElementById('cardBindInputCardId');
+    const last4Input = document.getElementById('cardBindInputLast4');
+    const nameInput = document.getElementById('cardBindInputName');
+    const errorEl = document.getElementById('cardBindInputError');
+    cardIdInput.focus();
+
+    function cleanup(value) {
+      modal.remove();
+      resolve(value);
+    }
+
+    document.getElementById('cardBindInputModalClose').onclick = () => cleanup(null);
+    document.getElementById('cardBindInputCancel').onclick = () => cleanup(null);
+    document.getElementById('cardBindInputConfirm').onclick = () => {
+      const cardId = cardIdInput.value.trim();
+      const last4 = last4Input.value.trim();
+      const pinyinName = nameInput.value.trim();
+
+      if (!cardId || !/^\d+$/.test(cardId)) {
+        errorEl.textContent = '请输入正确的卡ID（纯数字）';
+        return;
+      }
+      if (!last4 || !/^\d{4}$/.test(last4)) {
+        errorEl.textContent = '请输入正确的卡号后4位';
+        return;
+      }
+      if (!pinyinName) {
+        errorEl.textContent = '请输入姓名拼音';
+        return;
+      }
+      cleanup({ cardId, last4, pinyinName });
+    };
+    [cardIdInput, last4Input, nameInput].forEach((el) => {
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('cardBindInputConfirm').click();
+      });
     });
     modal.addEventListener('click', (e) => {
       if (e.target === modal) cleanup(null);
@@ -1792,23 +1854,18 @@ async function showKYC() {
         return;
     }
 
-    // ========== 修改：尚未提交过卡片信息 → 直接要求输入完整卡号 ==========
-    // 之前先要后四位，后四位重复的情况很多，经常撞号、需要二次输入完整卡号，
-    // 体验很差还容易出绑卡异常。完整卡号唯一，一次输入即可核实完毕。
+    // ========== 修改：完整卡号查询接口暂时不可用，改为用户自己填 卡ID + 卡号后4位 + 姓名拼音 ==========
+    // 后端核对"这个卡ID对应卡片的后四位"跟用户填的是否一致，一致才放行进入 KYC。
     if (!statusData.cardBindStatus) {
-        const result = await showCardNumberModal({
+        const cardInput = await showCardBindInputModal({
             title: '绑定国际卡',
-            subtitle: '请输入完整卡号和英文姓名，完成后将跳转 KYC 认证'
+            subtitle: '请填写卡片信息，完成后将跳转 KYC 认证'
         });
-        if (!result || !result.cardNumber) return;
+        if (!cardInput) return;
 
         const lockResult = await fetchAPI('/api/kyc/lock-card', {
             method: 'POST',
-            body: { 
-                fullCardNumber: result.cardNumber,
-                firstName: result.firstName,
-                lastName: result.lastName
-            }
+            body: { cardId: cardInput.cardId, last4: cardInput.last4, pinyinName: cardInput.pinyinName }
         });
 
         if (!lockResult || !lockResult.success) {
@@ -3442,25 +3499,21 @@ function renderSupportMessageContent(msg) {
 
 // ========== 新增：按钮消息 点击处理 ==========
 async function handleBindCardActionClick(btnEl) {
-    const result = await showCardNumberModal({
+    const fullCardNumber = await showCardNumberModal({
         title: '立即绑卡',
-        subtitle: '请输入完整卡号和英文姓名完成绑定'
+        subtitle: '请输入完整卡号完成绑定'
     });
-    if (!result || !result.cardNumber) return;
+    if (!fullCardNumber) return;
     if (btnEl) { btnEl.disabled = true; btnEl.innerText = '核实中...'; }
-    const apiResult = await fetchAPI('/api/kyc/manual-bind-card', {
+    const result = await fetchAPI('/api/kyc/manual-bind-card', {
         method: 'POST',
-        body: { 
-            fullCardNumber: result.cardNumber,
-            firstName: result.firstName,
-            lastName: result.lastName
-        }
+        body: { fullCardNumber }
     });
-    if (apiResult && apiResult.success) {
+    if (result && result.success) {
         alert('绑卡成功！');
         if (btnEl) { btnEl.innerText = '已完成绑卡'; }
     } else {
-        alert(apiResult?.error || '绑卡失败，请重试');
+        alert(result?.error || '绑卡失败，请重试');
         if (btnEl) { btnEl.disabled = false; btnEl.innerText = '立即绑卡'; }
         if (result && result.contactSupport) {
             // 这张卡已被别人绑定 / 卡片信息异常等情况，直接引导联系人工客服
