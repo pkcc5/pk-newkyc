@@ -1843,7 +1843,11 @@ async function checkKYCStatus() {
     showLoading();
     try {
         const data = await fetchAPI('/api/kyc/check-now', { method: 'POST' });
-        if (data && data.status === 'verified') {
+        if (data && data.status === 'verified' && data.cardBindStatus === 'needs_review') {
+            // KYC 本身已经通过了，卡在自动绑卡这一步（比如候选用卡人暂时都满了），需要人工核实
+            alert('✅ KYC 认证已完成，但卡片绑定遇到问题，需要人工核实\n\n请联系客服协助处理');
+            await refreshUserData();
+        } else if (data && data.status === 'verified') {
             alert('✅ KYC 认证已完成！');
             await refreshUserData();
             await preRenderProfilePage();
@@ -1885,6 +1889,8 @@ async function maybeSilentKYCCheck() {
             }
             if (result.cardBindStatus === 'active') {
                 alert('✅ KYC 认证已通过，卡片已为您自动绑定完成！');
+            } else if (result.cardBindStatus === 'needs_review') {
+                alert('✅ KYC 认证已通过，但卡片绑定需要人工核实，请联系客服协助处理');
             } else {
                 alert('✅ KYC 认证已通过！');
             }
