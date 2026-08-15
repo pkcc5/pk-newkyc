@@ -1873,7 +1873,7 @@ async function maybeSilentKYCCheck() {
     try {
         const statusData = await fetchAPI('/api/kyc/status'); // 本地缓存，不打外部接口，很快
         if (!statusData || statusData.status === 'verified' || statusData.status === 'rejected') return;
-        if (statusData.cardBindStatus !== 'locked' && statusData.cardBindStatus !== 'pending_card_input') return; // 还没到"已提交卡号、等审核"这一步，不用查
+        if (statusData.cardBindStatus !== 'locked') return; // 还没到"已提交卡号、等审核"这一步，不用查
 
         kycSilentCheckInFlight = true;
         const result = await fetchAPI('/api/kyc/check-now', { method: 'POST' });
