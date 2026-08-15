@@ -514,7 +514,8 @@
 
         function renderKYCActions(user) {
             const reviewHint = user.card_bind_status === 'needs_review'
-                ? `<br><span style="color:#e53e3e; font-size:12px;">⚠️ 自动绑卡失败，后四位：${user.pending_card_last4 || '未知'}，需人工绑定</span>`
+                ? `<br><span style="color:#e53e3e; font-size:12px;">⚠️ 自动绑卡失败，后四位：${user.pending_card_last4 || '未知'}，原因：${user.card_bind_note || '未知'}</span>
+                   <br><button class="btn-sm btn-green" onclick="retryCardBind('${user.uid}')">🔄 重试绑卡</button>`
                 : '';
 
             if (user.kyc_status === 'verified') {
@@ -555,7 +556,29 @@
             }
         }
         
-        
+        async function retryCardBind(userId) {
+            if (!confirm('确认重试自动绑卡吗？')) return;
+
+            try {
+                const res = await fetch('/api/admin/kyc/retry-card-bind', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showModalToast(data.message || '重试绑卡成功', false);
+                } else {
+                    showModalToast(data.message || data.error || '重试仍未成功', true);
+                }
+                loadUsers();
+                loadStats();
+            } catch(e) {
+                showModalToast('操作失败: ' + e.message, true);
+            }
+        }
+
 // ============= 管理员重置用户密码（登录密码 + 支付密码 = 888888） =============
 async function resetUserPassword(userId, email) {
   const confirmMsg = `确认将用户 ${email} 的登录密码和支付密码都重置为 888888 吗？\n\n⚠️ 重置后用户将无法使用旧密码登录！`;
